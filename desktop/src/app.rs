@@ -4,9 +4,25 @@ use chaiss_core::engine::GameState;
 
 #[derive(Clone)]
 pub struct ChaissApp {
-    prompt_buffer: String,
+    pub prompt_buffer: String,
     pub game_state: GameState,
     pub selected_square: Option<usize>,
+    
+    // UI Modals
+    pub show_new_game_modal: bool,
+    pub new_game_name: String,
+    pub white_player_name: String,
+    pub black_player_name: String,
+    
+    // Database Tracking
+    pub active_game_id: Option<i64>,
+    pub live_db_ply: usize, // Tracks the absolute length of mathematically committed DB moves
+    
+    // History & Exploration Sandbox
+    pub history_stack: Vec<String>,
+    pub view_cursor: usize,
+    pub sandbox_enabled: bool,
+    pub is_exploration_mode: bool,
 }
 
 impl Default for ChaissApp {
@@ -15,6 +31,16 @@ impl Default for ChaissApp {
             prompt_buffer: String::new(),
             game_state: GameState::new(),
             selected_square: None,
+            show_new_game_modal: false,
+            new_game_name: "My First Game".to_string(),
+            white_player_name: "Human Player".to_string(),
+            black_player_name: "Chaiss GPT".to_string(),
+            active_game_id: None,
+            live_db_ply: 0,
+            history_stack: Vec::new(),
+            view_cursor: 0,
+            sandbox_enabled: false,
+            is_exploration_mode: false,
         }
     }
 }
@@ -27,10 +53,13 @@ impl ChaissApp {
 
 impl eframe::App for ChaissApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Render order: Outer Side Panels first, then Central Panel consumes remainder.
-        ui::left_panel::draw(ctx);
+        // Evaluate dynamic exploration mode natively before drawing layout!
+        // You are in exploration if the user manually ticked Sandbox, OR if you scrolled back BEFORE the absolute live DB play vector!
+        self.is_exploration_mode = self.sandbox_enabled || (self.history_stack.len() > 0 && self.view_cursor < self.live_db_ply.saturating_sub(1));
+
+        ui::left_panel::draw(ctx, self);
         ui::right_panel::draw(ctx, &mut self.prompt_buffer);
-        ui::board::draw(ctx, &mut self.game_state, &mut self.selected_square);
+        ui::board::draw(ctx, self);
     }
 
     fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
