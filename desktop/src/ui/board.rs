@@ -49,9 +49,9 @@ pub fn draw(ctx: &egui::Context, state: &mut GameState, selected_square: &mut Op
                     let is_light = (row + col) % 2 == 0;
                     
                     let base_color = if is_light {
-                        egui::Color32::from_rgb(240, 217, 181) // Light square
+                        egui::Color32::from_rgb(238, 238, 238) // Off-white square
                     } else {
-                        egui::Color32::from_rgb(181, 136, 99) // Dark square
+                        egui::Color32::from_rgb(142, 142, 142) // Greyish square
                     };
 
                     let min = rect.min + egui::vec2(col as f32 * square_size, row as f32 * square_size);
@@ -73,13 +73,29 @@ pub fn draw(ctx: &egui::Context, state: &mut GameState, selected_square: &mut Op
                         ui.painter().rect_filled(square_rect, 0.0, egui::Color32::from_rgba_premultiplied(255, 255, 255, 40)); 
                     }
 
-                    // 3. Draw Heat Map Transparent Modifier directly over the active vectors if heat exists
-                    let heat = heat_map[row][col];
-                    if heat > 0 {
-                        let max_heat_alpha = 4.0; 
-                        let alpha = ((heat as f32 / max_heat_alpha) * 150.0).clamp(0.0, 200.0) as u8;
-                        let heat_color = egui::Color32::from_rgba_premultiplied(220, 20, 60, alpha); // Crimson
-                        ui.painter().rect_filled(square_rect, 0.0, heat_color);
+                    // 3. Draw Dual-Tone Radiance Map pulling structured math tuple overlays dynamically!
+                    let (white_heat, black_heat) = heat_map[row][col];
+                    if white_heat > 0 || black_heat > 0 {
+                        let max_heat = 3.0; // Optimal scaling for intense overlaps
+                        let w_norm = (white_heat as f32 / max_heat).min(1.0);
+                        let b_norm = (black_heat as f32 / max_heat).min(1.0);
+                        
+                        let b_val = (w_norm * 255.0) as u8; 
+                        let r_val = (b_norm * 255.0) as u8; 
+                        
+                        let max_norm = w_norm.max(b_norm);
+                        
+                        let layers = 4;
+                        for i in 0..layers {
+                            let shrink_px = i as f32 * 3.0;
+                            let inset_rect = square_rect.shrink(shrink_px);
+                            
+                            let alpha_fade = 1.0 - (i as f32 / layers as f32);
+                            let final_alpha = (max_norm * 200.0 * alpha_fade) as u8;
+                            
+                            let heat_color = egui::Color32::from_rgba_premultiplied(r_val, 0, b_val, final_alpha);
+                            ui.painter().rect_stroke(inset_rect, 0.0, egui::Stroke::new(3.0, heat_color), egui::StrokeKind::Inside);
+                        }
                     }
 
                     // Native Interaction Math -> Consuming pseudo-math dynamically

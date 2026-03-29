@@ -242,9 +242,9 @@ impl GameState {
     }
 
     /// Generates a heat map of attacked squares
-    /// Consumes the raycasting logic to build an authentic alpha-blend array.
-    pub fn generate_heat_map(&self) -> [[u8; 8]; 8] {
-        let mut heat_map = [[0u8; 8]; 8];
+    /// Consumes the raycasting logic to build an authentic alpha-blend array distinguishing White vs Black mathematically!
+    pub fn generate_heat_map(&self) -> [[(u8, u8); 8]; 8] {
+        let mut heat_map = [[(0u8, 0u8); 8]; 8];
         
         for rank in 0..8 {
             for file in 0..8 {
@@ -256,7 +256,12 @@ impl GameState {
                     for att_idx in attacks {
                         let att_r = att_idx / 8;
                         let att_f = att_idx % 8;
-                        heat_map[att_r][att_f] += 1;
+                        
+                        if piece.color == Color::White {
+                            heat_map[att_r][att_f].0 += 1;
+                        } else {
+                            heat_map[att_r][att_f].1 += 1;
+                        }
                     }
                 }
             }
