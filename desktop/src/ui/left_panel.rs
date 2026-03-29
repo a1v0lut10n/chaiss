@@ -51,9 +51,27 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         app.show_new_game_modal = false;
                     }
                     if ui.button("Confirm & Start").clicked() {
-                        // Connect to DbClient natively here!
                         app.show_new_game_modal = false;
-                        println!("New Game Captured: {}", app.new_game_name);
+                        println!("Invoking Async DB Threads for Game Creation!");
+                        
+                        if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
+                            let p1_name = app.white_player_name.clone();
+                            let p2_name = app.black_player_name.clone();
+                            let game_title = app.new_game_name.clone();
+                            let start_fen = app.game_state.to_fen();
+                            
+                            // Spin non-blocking async DB generation safely outside 60FPS loop!
+                            tokio::spawn(async move {
+                                if let Ok(p1) = db.create_player(&p1_name).await {
+                                    if let Ok(p2) = db.create_player(&p2_name).await {
+                                        if let Ok(g_id) = db.create_game(&game_title, p1, p2, &start_fen).await {
+                                            // Pipeline the resolution natively backwards to egui!
+                                            let _ = tx.send_async(crate::app::DbEvent::GameCreated { game_id: g_id }).await;
+                                        }
+                                    }
+                                }
+                            });
+                        }
                     }
                 });
             });

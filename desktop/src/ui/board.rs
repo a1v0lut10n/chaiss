@@ -112,6 +112,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             let legal_moves = chaiss_core::engine::movement::get_legal_moves(&app.game_state, sel_idx, active_piece);
                             
                             if legal_moves.contains(&index) {
+                                // Formulate True FIDE String BEFORE mutating active board geometry natively!
+                                let algebraic_notation = chaiss_core::engine::notation::get_algebraic_notation(&app.game_state, sel_idx, index, None);
+                                println!("Mathematical Move Resolved: {}", algebraic_notation);
+                                
                                 // 1. Push FIDE root to history on the very first active move!
                                 if app.history_stack.is_empty() {
                                     app.history_stack.push(app.game_state.to_fen());
@@ -129,11 +133,22 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 } else {
                                     // 3. Live DB Tracked Move
                                     app.game_state.apply_move(sel_idx, index, None);
-                                    app.history_stack.push(app.game_state.to_fen());
+                                    
+                                    let fen_snapshot = app.game_state.to_fen();
+                                    app.history_stack.push(fen_snapshot.clone());
+                                    
                                     app.view_cursor = app.history_stack.len() - 1;
                                     app.live_db_ply = app.history_stack.len();
                                     
-                                    // TODO: `tokio::spawn` native sqlx `log_move` right here instantly!
+                                    // Pass explicit FEN layout natively across Flume/Tokio cleanly!
+                                    if let (Some(db), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
+                                        let move_ply = app.live_db_ply as i64;
+                                        let notation = algebraic_notation.clone();
+                                                                                
+                                        tokio::spawn(async move {
+                                            let _ = db.log_move(game_id, move_ply, &notation, &fen_snapshot).await;
+                                        });
+                                    }
                                 }
                                 
                                 app.selected_square = None;
