@@ -34,11 +34,11 @@ impl DbClient {
         Ok(record.and_then(|r| r.id)) // flatten the implicitly wrapped SQLite Option
     }
 
-    pub async fn create_game(&self, white_id: i64, black_id: i64, initial_fen: &str) -> Result<i64, Error> {
+    pub async fn create_game(&self, name: &str, white_id: i64, black_id: i64, initial_fen: &str) -> Result<i64, Error> {
         let status = "ongoing";
         let result = sqlx::query!(
-            "INSERT INTO games (white_player_id, black_player_id, current_fen, status) VALUES (?, ?, ?, ?)",
-            white_id, black_id, initial_fen, status
+            "INSERT INTO games (name, white_player_id, black_player_id, current_fen, status) VALUES (?, ?, ?, ?, ?)",
+            name, white_id, black_id, initial_fen, status
         )
         .execute(&self.pool)
         .await?;

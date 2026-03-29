@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS players (
 
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL DEFAULT 'Untitled Game',
     white_player_id INTEGER NOT NULL REFERENCES players(id),
     black_player_id INTEGER NOT NULL REFERENCES players(id),
     current_fen TEXT NOT NULL,
