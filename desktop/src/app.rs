@@ -1,8 +1,9 @@
 use eframe::egui;
+use crate::ui;
 
 #[derive(Default)]
 pub struct ChaissApp {
-    // Central state holder
+    prompt_buffer: String,
 }
 
 impl ChaissApp {
@@ -13,14 +14,13 @@ impl ChaissApp {
 
 impl eframe::App for ChaissApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        #[allow(deprecated)]
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Chaiss - Native Desktop Scaffold");
-            ui.label("Waiting for modular UI implementation...");
-        });
+        // Render order: Outer Side Panels first, then Central Panel consumes remainder.
+        ui::left_panel::draw(ctx);
+        ui::right_panel::draw(ctx, &mut self.prompt_buffer);
+        ui::board::draw(ctx);
     }
 
     fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // Stub to satisfy eframe 0.34 App trait
+        // Stub to satisfy eframe 0.34 App trait signature
     }
 }
