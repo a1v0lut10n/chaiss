@@ -67,6 +67,47 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                     attacks.push((r * 8 + f) as usize);
                 }
             }
+
+            // Castling Algebraic Validation!
+            if piece.color == Color::White && sq_idx == 60 { // e1
+                if state.castling_rights.contains('K') { // Kingside
+                    if state.board[61].is_none() && state.board[62].is_none() {
+                        if !is_square_attacked(state, 60, Color::Black) && 
+                           !is_square_attacked(state, 61, Color::Black) && 
+                           !is_square_attacked(state, 62, Color::Black) {
+                               attacks.push(62);
+                        }
+                    }
+                }
+                if state.castling_rights.contains('Q') { // Queenside
+                    if state.board[59].is_none() && state.board[58].is_none() && state.board[57].is_none() {
+                        if !is_square_attacked(state, 60, Color::Black) && 
+                           !is_square_attacked(state, 59, Color::Black) && 
+                           !is_square_attacked(state, 58, Color::Black) {
+                               attacks.push(58);
+                        }
+                    }
+                }
+            } else if piece.color == Color::Black && sq_idx == 4 { // e8
+                if state.castling_rights.contains('k') { // Kingside
+                    if state.board[5].is_none() && state.board[6].is_none() {
+                        if !is_square_attacked(state, 4, Color::White) && 
+                           !is_square_attacked(state, 5, Color::White) && 
+                           !is_square_attacked(state, 6, Color::White) {
+                               attacks.push(6);
+                        }
+                    }
+                }
+                if state.castling_rights.contains('q') { // Queenside
+                    if state.board[3].is_none() && state.board[2].is_none() && state.board[1].is_none() {
+                        if !is_square_attacked(state, 4, Color::White) && 
+                           !is_square_attacked(state, 3, Color::White) && 
+                           !is_square_attacked(state, 2, Color::White) {
+                               attacks.push(2);
+                        }
+                    }
+                }
+            }
         },
         PieceType::Pawn => {
             // Pawns only exert attack heat to their diagonal forward squares!
@@ -150,6 +191,88 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
         }
     }
 
-    // TODO: Verify true validation against Kings moving into self checks natively. Filter `moves`.
-    moves
+    // Hostile Filtering Phase: The Clone Engine
+    let mut strictly_legal_moves = Vec::new();
+    
+    for target_idx in moves {
+        let mut sim = state.clone();
+        sim.apply_move(sq_idx, target_idx, None);
+
+        if let Some(king_idx) = find_king(&sim, piece.color) {
+            // Is the king instantly obliterated defensively on this hypothetical turn execution layout?
+            if !is_square_attacked(&sim, king_idx, piece.color.opposite()) {
+                strictly_legal_moves.push(target_idx); // Safe move mathematically!
+            }
+        } else {
+            // Failsafe for invalid testing geometries missing a king
+            strictly_legal_moves.push(target_idx);
+        }
+    }
+
+    strictly_legal_moves
+}
+
+/// Sweeps the 1D Board space determining if an arbitrary square physically intersects ANY native hostile projection raycast.
+pub fn is_square_attacked(state: &GameState, target_idx: usize, attacker_color: Color) -> bool {
+    for sq_idx in 0..64 {
+        if let Some(piece) = state.board[sq_idx] {
+            if piece.color == attacker_color {
+                let attacks = get_pseudo_legal_attacks(state, sq_idx, piece);
+                if attacks.contains(&target_idx) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Locates a specific Color's 1D King index geometrically natively.
+pub fn find_king(state: &GameState, color: Color) -> Option<usize> {
+    for sq_idx in 0..64 {
+        if let Some(piece) = state.board[sq_idx] {
+            if piece.color == color && piece.piece_type == PieceType::King {
+                return Some(sq_idx);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pinned_knight_cannot_move() {
+        // Setup FEN: White King e1. White Knight e2. Black Rook e8.
+        let fen = "4r3/8/8/8/8/8/4N3/4K3 w - - 0 1";
+        let state = GameState::from_fen(fen).unwrap();
+        
+        let knight_idx = 52; // e2 geometrically mapping 
+        let piece = state.board[knight_idx].unwrap();
+        
+        // Knight ordinarily leaps out 8 ways, but wait! Black's Rook mathematically holds the King linearly.
+        let legal_moves = get_legal_moves(&state, knight_idx, piece);
+        assert_eq!(legal_moves.len(), 0, "Pinned knight violently blocked from moving!");
+    }
+
+    #[test]
+    fn test_king_check_forces_responses() {
+        // Setup FEN: White King e1 natively under attack by Black Rook e2.
+        let fen = "8/8/8/8/8/8/P3r3/4K3 w - - 0 1";
+        let state = GameState::from_fen(fen).unwrap();
+        
+        let pawn_idx = 48; // a2 natively 
+        let piece = state.board[pawn_idx].unwrap();
+        let legal_moves = get_legal_moves(&state, pawn_idx, piece);
+        assert_eq!(legal_moves.len(), 0, "Idle movement discarded when King is checked!");
+
+        let king_idx = 60; // e1 
+        let piece = state.board[king_idx].unwrap();
+        let legal_moves = get_legal_moves(&state, king_idx, piece);
+        
+        // King geometrically steps off File E to survive! (d1, f1) or physically captures the unguarded attacking Rook! (e2)
+        assert_eq!(legal_moves.len(), 3, "King physically forced to sidestep hostile checks or capture attackers!");
+    }
 }

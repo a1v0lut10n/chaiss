@@ -1,5 +1,5 @@
 use eframe::egui;
-use chaiss_core::engine::{GameState, Piece, PieceType, Color};
+use chaiss_core::engine::{GameState, Piece, PieceType, Color, GameEndStatus};
 
 fn get_unicode_for_piece(piece: &Piece) -> &'static str {
     match piece.color {
@@ -23,6 +23,8 @@ fn get_unicode_for_piece(piece: &Piece) -> &'static str {
 }
 
 pub fn draw(ctx: &egui::Context, state: &mut GameState, selected_square: &mut Option<usize>) {
+    let terminal_state = state.evaluate_terminal_state();
+
     #[allow(deprecated)]
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.heading("Board Context");
@@ -81,14 +83,14 @@ pub fn draw(ctx: &egui::Context, state: &mut GameState, selected_square: &mut Op
                     }
 
                     // Native Interaction Math -> Consuming pseudo-math dynamically
-                    if response.clicked() {
+                    if terminal_state.is_none() && response.clicked() {
                         if let Some(sel_idx) = *selected_square {
                             // Already holding a piece. Where is the user trying to drop it?
                             let active_piece = state.board[sel_idx].unwrap();
                             let legal_moves = chaiss_core::engine::movement::get_legal_moves(state, sel_idx, active_piece);
                             
                             if legal_moves.contains(&index) {
-                                state.apply_move(sel_idx, index);
+                                state.apply_move(sel_idx, index, None);
                                 *selected_square = None;
                             } else {
                                 // Illegally clicked square. Revert active tracking unless clicking our own piece to swap
@@ -140,6 +142,30 @@ pub fn draw(ctx: &egui::Context, state: &mut GameState, selected_square: &mut Op
                         );
                     }
                 }
+            }
+
+            // Draw Checkmate / Stalemate overlay natively across absolute bounds!
+            if let Some(status) = terminal_state {
+                let overlay_color = egui::Color32::from_black_alpha(150);
+                let full_board_rect = egui::Rect::from_min_max(rect.min, rect.max);
+                ui.painter().rect_filled(full_board_rect, 0.0, overlay_color);
+                
+                let text = match status {
+                    GameEndStatus::Checkmate(winner) => {
+                        format!("Checkmate!\n{:?} Wins", winner)
+                    },
+                    GameEndStatus::Stalemate => {
+                        "Stalemate!\nDraw".to_string()
+                    }
+                };
+                
+                ui.painter().text(
+                    full_board_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    text,
+                    egui::FontId::proportional(board_size * 0.1),
+                    egui::Color32::WHITE,
+                );
             }
         }
     });

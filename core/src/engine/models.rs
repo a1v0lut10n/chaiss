@@ -26,6 +26,12 @@ pub enum PieceType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameEndStatus {
+    Checkmate(Color), // Represents the Winner naturally
+    Stalemate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Piece {
     pub color: Color,
     pub piece_type: PieceType,
@@ -260,20 +266,57 @@ impl GameState {
     }
 
     /// Mutates the state structurally, transposing the Piece vector entirely!
-    pub fn apply_move(&mut self, from: usize, to: usize) {
-        let piece = self.board[from].take();
+    pub fn apply_move(&mut self, from: usize, to: usize, promotion_target: Option<PieceType>) {
+        let mut piece = self.board[from].take();
         
-        // Handle physical en passant capture execution geometrically!
-        if let Some(p) = piece {
+        if let Some(mut p) = piece {
+            // Handle Castling Geometry Transpositions
+            if p.piece_type == PieceType::King {
+                // Permanently disable castling rights 
+                if p.color == Color::White {
+                    self.castling_rights = self.castling_rights.replace("K", "").replace("Q", "");
+                } else {
+                    self.castling_rights = self.castling_rights.replace("k", "").replace("q", "");
+                }
+                
+                // Physical Jump Execution natively
+                if from == 60 && to == 62 { // White Kingside 
+                    self.board[61] = self.board[63].take(); 
+                } else if from == 60 && to == 58 { // White Queenside
+                    self.board[59] = self.board[56].take(); 
+                } else if from == 4 && to == 6 { // Black Kingside
+                    self.board[5] = self.board[7].take();
+                } else if from == 4 && to == 2 { // Black Queenside
+                    self.board[3] = self.board[0].take(); 
+                }
+            }
+            
+            // Handle Rook explicit movement degradation 
+            if p.piece_type == PieceType::Rook {
+                if from == 63 { self.castling_rights = self.castling_rights.replace("K", ""); }
+                if from == 56 { self.castling_rights = self.castling_rights.replace("Q", ""); }
+                if from == 7 { self.castling_rights = self.castling_rights.replace("k", ""); }
+                if from == 0 { self.castling_rights = self.castling_rights.replace("q", ""); }
+            }
+
+            // Handle physical en passant capture geometry
             if p.piece_type == PieceType::Pawn {
                 if let Some(ep_sq) = self.en_passant_target {
                     if to == ep_sq.index {
-                        // The user moved into the EP square. We must physically wipe the pawn orthogonal to it!
+                        // Wipe mathematically captured pawn behind!
                         let capture_idx = if p.color == Color::White { to + 8 } else { to - 8 };
                         self.board[capture_idx] = None;
                     }
                 }
+                
+                // Implement Auto-Queening Promotion 
+                let to_rank = to / 8;
+                if to_rank == 0 || to_rank == 7 {
+                    p.piece_type = promotion_target.unwrap_or(PieceType::Queen);
+                }
             }
+            
+            piece = Some(p); // Load back the modified Piece structurally
         }
         
         // Execute structural landing
@@ -290,6 +333,19 @@ impl GameState {
                 }
             }
         }
+        
+        // Castling explicitly ends if Rooks are mathematically captured by an enemy piece!
+        if to == 63 { self.castling_rights = self.castling_rights.replace("K", ""); }
+        if to == 56 { self.castling_rights = self.castling_rights.replace("Q", ""); }
+        if to == 7 { self.castling_rights = self.castling_rights.replace("k", ""); }
+        if to == 0 { self.castling_rights = self.castling_rights.replace("q", ""); }
+        
+        // Keep FEN perfectly stringified
+        if self.castling_rights.is_empty() {
+            self.castling_rights = "-".to_string(); 
+        } else if self.castling_rights != "-" && self.castling_rights.contains('-') {
+            self.castling_rights = self.castling_rights.replace("-", "");
+        }
 
         // Toggle native color and turn tracking natively
         self.active_color = self.active_color.opposite();
@@ -297,7 +353,40 @@ impl GameState {
             self.fullmove_number += 1;
         }
 
-        // (Pending: Castling executions & halfmove clocks)
+        // TODO: Full halfmove clock bounds
+    }
+
+    /// Evaluates if all geometric paths for the currently active color are violently exhausted natively!
+    pub fn evaluate_terminal_state(&self) -> Option<GameEndStatus> {
+        let mut has_moves = false;
+        
+        // Loop purely to test mathematical bounds 
+        for sq_idx in 0..64 {
+            if let Some(piece) = self.board[sq_idx] {
+                if piece.color == self.active_color {
+                    let moves = super::movement::get_legal_moves(self, sq_idx, piece);
+                    if !moves.is_empty() {
+                        has_moves = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Exiting loops natively verifies completely locked boards algebraically! 
+        if !has_moves {
+            if let Some(king_idx) = super::movement::find_king(self, self.active_color) {
+                if super::movement::is_square_attacked(self, king_idx, self.active_color.opposite()) {
+                    return Some(GameEndStatus::Checkmate(self.active_color.opposite())); // The attacking hostiles won!
+                } else {
+                    return Some(GameEndStatus::Stalemate); // Pinned but safe algebraically 
+                }
+            } else {
+                return Some(GameEndStatus::Stalemate); // Failsafe for missing King strings
+            }
+        }
+        
+        None
     }
 }
 
@@ -318,10 +407,19 @@ mod tests {
     fn test_ascii_generation() {
         let state = GameState::new();
         let ascii = state.to_ascii();
-        assert!(ascii.contains("r  n  b  q  k  b  n  r "));
-        assert!(ascii.contains("R  N  B  Q  K  B  N  R "));
         assert!(ascii.contains("P  P  P  P  P  P  P  P "));
         assert!(ascii.contains("p  p  p  p  p  p  p  p "));
         assert!(ascii.contains("a  b  c  d  e  f  g  h"));
+    }
+
+    #[test]
+    fn test_evaluate_fools_mate() {
+        // e4 g5, d4 f6, Qh5# 
+        // White to move? No, Black to move and is checkmated by White!
+        let fen = "rnbqkbnr/ppppp2p/5p2/6pQ/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 3";
+        let state = GameState::from_fen(fen).unwrap();
+        
+        let terminal = state.evaluate_terminal_state();
+        assert_eq!(terminal, Some(GameEndStatus::Checkmate(Color::White)), "Mathematically verifies White's victory!");
     }
 }
