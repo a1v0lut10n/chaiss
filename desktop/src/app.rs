@@ -1,9 +1,22 @@
 use eframe::egui;
 use crate::ui;
+use chaiss_core::engine::GameState;
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct ChaissApp {
     prompt_buffer: String,
+    pub game_state: GameState,
+    pub selected_square: Option<usize>,
+}
+
+impl Default for ChaissApp {
+    fn default() -> Self {
+        Self {
+            prompt_buffer: String::new(),
+            game_state: GameState::new(),
+            selected_square: None,
+        }
+    }
 }
 
 impl ChaissApp {
@@ -17,7 +30,7 @@ impl eframe::App for ChaissApp {
         // Render order: Outer Side Panels first, then Central Panel consumes remainder.
         ui::left_panel::draw(ctx);
         ui::right_panel::draw(ctx, &mut self.prompt_buffer);
-        ui::board::draw(ctx);
+        ui::board::draw(ctx, &mut self.game_state, &mut self.selected_square);
     }
 
     fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
