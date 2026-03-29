@@ -236,23 +236,68 @@ impl GameState {
     }
 
     /// Generates a heat map of attacked squares
-    /// Note: This is an analytical stub for plotting attacks natively into desktop's alpha accumulator.
+    /// Consumes the raycasting logic to build an authentic alpha-blend array.
     pub fn generate_heat_map(&self) -> [[u8; 8]; 8] {
         let mut heat_map = [[0u8; 8]; 8];
         
-        // STUB: This loops over pieces and blindly dumps heat on vertically adjacent squares. 
-        // Real implementation will calculate sliding raycasts, checks, and pins!
         for rank in 0..8 {
             for file in 0..8 {
                 let index = rank * 8 + file;
-                if let Some(_piece) = self.board[index] {
-                    if rank > 0 { heat_map[rank - 1][file] += 1; }
-                    if rank < 7 { heat_map[rank + 1][file] += 1; }
+                if let Some(piece) = self.board[index] {
+                    // Fetch every square this piece exerts mathematical pressure on
+                    let attacks = super::movement::get_pseudo_legal_attacks(self, index, piece);
+                    
+                    for att_idx in attacks {
+                        let att_r = att_idx / 8;
+                        let att_f = att_idx % 8;
+                        heat_map[att_r][att_f] += 1;
+                    }
                 }
             }
         }
         
         heat_map
+    }
+
+    /// Mutates the state structurally, transposing the Piece vector entirely!
+    pub fn apply_move(&mut self, from: usize, to: usize) {
+        let piece = self.board[from].take();
+        
+        // Handle physical en passant capture execution geometrically!
+        if let Some(p) = piece {
+            if p.piece_type == PieceType::Pawn {
+                if let Some(ep_sq) = self.en_passant_target {
+                    if to == ep_sq.index {
+                        // The user moved into the EP square. We must physically wipe the pawn orthogonal to it!
+                        let capture_idx = if p.color == Color::White { to + 8 } else { to - 8 };
+                        self.board[capture_idx] = None;
+                    }
+                }
+            }
+        }
+        
+        // Execute structural landing
+        self.board[to] = piece;
+
+        // Reset en_passant_target dynamically if this was a double pawn push landing!
+        self.en_passant_target = None;
+        if let Some(p) = piece {
+            if p.piece_type == PieceType::Pawn {
+                let diff = (to as i32 - from as i32).abs();
+                if diff == 16 {
+                    let ep_idx = if p.color == Color::White { from - 8 } else { from + 8 };
+                    self.en_passant_target = Some(Square::new(ep_idx));
+                }
+            }
+        }
+
+        // Toggle native color and turn tracking natively
+        self.active_color = self.active_color.opposite();
+        if self.active_color == Color::White {
+            self.fullmove_number += 1;
+        }
+
+        // (Pending: Castling executions & halfmove clocks)
     }
 }
 
