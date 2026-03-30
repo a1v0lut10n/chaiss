@@ -27,7 +27,25 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
     #[allow(deprecated)]
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("Board Context");
+        ui.horizontal(|ui| {
+            ui.heading(egui::RichText::new("Board Context").strong());
+            
+            ui.add_space(20.0);
+            ui.separator();
+            ui.add_space(20.0);
+            
+            // Draw visually striking Active Turn text overlay dynamically matching Color state natively!
+            let (turn_text, txt_color) = match app.game_state.active_color {
+                Color::White => ("Active Turn: ♙ White", egui::Color32::from_rgb(220, 220, 220)),
+                Color::Black => ("Active Turn: ♟ Black", egui::Color32::from_rgb(130, 130, 130)),
+            };
+            ui.heading(egui::RichText::new(turn_text).color(txt_color));
+            
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.checkbox(&mut app.flip_board, "Flip Board (Play as Black)");
+            });
+        });
+        
         ui.add_space(10.0);
 
         let available = ui.available_size();
@@ -50,7 +68,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             
             // Draw File Vectors (A through H) across Top and Bottom geometries natively
             for col in 0..8 {
-                let file_char = (b'a' + col as u8) as char;
+                let logical_col = if app.flip_board { 7 - col } else { col };
+                let file_char = (b'a' + logical_col as u8) as char;
                 let text = file_char.to_string();
                 
                 let top_rect = egui::Rect::from_min_max(
@@ -68,7 +87,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             
             // Draw Rank Vectors (1 through 8) descending down Left and Right geometries natively
             for row in 0..8 {
-                let rank_char = (b'8' - row as u8) as char;
+                let logical_row = if app.flip_board { 7 - row } else { row };
+                let rank_char = (b'8' - logical_row as u8) as char;
                 let text = rank_char.to_string();
                 
                 let lft_rect = egui::Rect::from_min_max(
@@ -100,7 +120,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     let min = grid_start + egui::vec2(col as f32 * square_size, row as f32 * square_size);
                     let max = min + egui::vec2(square_size, square_size);
                     let square_rect = egui::Rect::from_min_max(min, max);
-                    let index = row * 8 + col;
+                    
+                    let logical_row = if app.flip_board { 7 - row } else { row };
+                    let logical_col = if app.flip_board { 7 - col } else { col };
+                    let index = logical_row * 8 + logical_col;
 
                     // 1. Assign native geometric Hit-Box listener 
                     let response = ui.interact(square_rect, ui.id().with(index), egui::Sense::click());
@@ -117,7 +140,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     }
 
                     // 3. Draw Dual-Tone Radiance Map pulling structured math tuple overlays dynamically!
-                    let (white_heat, black_heat) = heat_map[row][col];
+                    let (white_heat, black_heat) = heat_map[logical_row][logical_col];
                     if white_heat > 0 || black_heat > 0 {
                         let max_heat = 3.0; // Optimal scaling for intense overlaps
                         let w_norm = (white_heat as f32 / max_heat).min(1.0);

@@ -32,6 +32,9 @@ pub struct ChaissApp {
     pub live_db_ply: usize, // Tracks the absolute length of mathematically committed DB moves
     pub active_sessions: Vec<GameRecord>,
     
+    // UI Presentation
+    pub flip_board: bool,
+    
     // History & Exploration Sandbox
     pub history_stack: Vec<String>,
     pub view_cursor: usize,
@@ -59,6 +62,7 @@ impl Default for ChaissApp {
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
+            flip_board: false,
         }
     }
 }
