@@ -5,10 +5,16 @@ mod ui;
 
 use app::ChaissApp;
 
+use std::sync::Arc;
+
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
     println!("Starting Chaiss Desktop...");
     chaiss_core::init();
+    
+    // Establish the native global connection pool inside the Tokio runtime!
+    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://chaiss.db".to_string());
+    let db_client = Arc::new(chaiss_core::db::DbClient::new(&db_url).await.expect("Failed to securely bind SQLite Database locally!"));
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -20,6 +26,6 @@ async fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Chaiss - AI Chess Board",
         native_options,
-        Box::new(|cc| Ok(Box::new(ChaissApp::new(cc)))),
+        Box::new(move |cc| Ok(Box::new(ChaissApp::new(cc, db_client)))),
     )
 }
