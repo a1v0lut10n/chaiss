@@ -8,11 +8,11 @@ pub enum DbEvent {
     GameCreated { game_id: i64 },
     GameDeleted { game_id: i64 },
     SessionsLoaded { sessions: Vec<GameRecord> },
-    GameResumed { history: Vec<String>, game_id: i64 },
+    GameResumed { history: Vec<String>, algebraic: Vec<String>, game_id: i64 },
 }
 
 pub enum LlmEvent {
-    ChatSubmitted(String),
+    InferenceRequested(chaiss_core::llm::LlmPromptPayload),
     TokenStreamed(String),
     InferenceFinished,
 }
@@ -50,6 +50,7 @@ pub struct ChaissApp {
     
     // History & Exploration Sandbox
     pub history_stack: Vec<String>,
+    pub algebraic_history: Vec<String>,
     pub view_cursor: usize,
     pub sandbox_enabled: bool,
     pub is_exploration_mode: bool,
@@ -76,6 +77,7 @@ impl Default for ChaissApp {
             live_db_ply: 0,
             active_sessions: Vec::new(),
             history_stack: Vec::new(),
+            algebraic_history: Vec::new(),
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
@@ -131,6 +133,7 @@ impl eframe::App for ChaissApp {
                             self.active_game_id = None;
                             self.game_state = GameState::new();
                             self.history_stack.clear();
+                            self.algebraic_history.clear();
                             self.live_db_ply = 0;
                             self.view_cursor = 0;
                             self.is_exploration_mode = false;
@@ -154,17 +157,19 @@ impl eframe::App for ChaissApp {
                             let latest_id = self.active_sessions[0].id;
                             if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
                                 tokio::spawn(async move {
-                                    if let Ok((root_fen, mut history)) = db.load_game_history(latest_id).await {
+                                    if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(latest_id).await {
                                         history.insert(0, root_fen);
-                                        let _ = tx.send_async(DbEvent::GameResumed { history, game_id: latest_id }).await;
+                                        algebraic.insert(0, "START".to_string());
+                                        let _ = tx.send_async(DbEvent::GameResumed { history, algebraic, game_id: latest_id }).await;
                                     }
                                 });
                             }
                         }
                     }
-                    DbEvent::GameResumed { history, game_id } => {
+                    DbEvent::GameResumed { history, algebraic, game_id } => {
                         self.active_game_id = Some(game_id);
                         self.history_stack = history;
+                        self.algebraic_history = algebraic;
                         
                         // Mutate active board layout to exactly match the final chronological move algebraically!
                         if let Some(final_fen) = self.history_stack.last() {
@@ -189,22 +194,23 @@ impl eframe::App for ChaissApp {
         if let Some(rx) = &self.llm_rx {
             while let Ok(event) = rx.try_recv() {
                 match event {
-                    LlmEvent::ChatSubmitted(prompt) => {
-                        self.chat_history.push(("User".to_string(), prompt.clone()));
+                    LlmEvent::InferenceRequested(payload) => {
+                        self.chat_history.push(("User".to_string(), payload.prompt.clone()));
                         self.live_llm_response = String::new();
                         
                         // Break memory locks extracting standard pointers
                         let tx_clone = self.llm_tx.clone().unwrap(); 
-                        let prompt_print = prompt.clone();
+                        let prompt_print = payload.prompt.clone();
                         
                         tokio::spawn(async move {
                             // Forward tokens mathematically via a sub-channel internally!
-                            let prompt_clone = prompt.clone();
                             let (stream_tx, stream_rx) = flume::unbounded::<String>();
                             
                             // Spin isolated engine pipeline structurally fetching REST geometry offline
                             tokio::spawn(async move {
-                                let _ = chaiss_core::llm::stream_llm_response(&prompt_clone, stream_tx).await;
+                                if let Err(e) = chaiss_core::llm::stream_llm_response(payload, stream_tx.clone()).await {
+                                    let _ = stream_tx.send_async(format!("\n[System Error: LLM Architecture Failed! {}]", e)).await;
+                                }
                             });
                             
                             // Re-bundle raw bytes explicitly streaming Egui mathematically!
@@ -215,7 +221,7 @@ impl eframe::App for ChaissApp {
                             let _ = tx_clone.send_async(LlmEvent::InferenceFinished).await;
                         });
                         
-                        println!("LLM Prompt Dispatched securely out of UI Thread bounds! Prompt: {}", prompt_print);
+                        println!("LLM Payload Dispatched securely via Contextual Injection Arrays! Prompt: {}", prompt_print);
                     }
                     LlmEvent::TokenStreamed(token) => {
                         self.live_llm_response.push_str(&token);
