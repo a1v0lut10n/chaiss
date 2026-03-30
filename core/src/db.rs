@@ -2,6 +2,15 @@
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::Error;
 
+#[derive(Debug, Clone)]
+pub struct GameRecord {
+    pub id: i64,
+    pub name: String,
+    pub status: String,
+    pub white_player: String,
+    pub black_player: String,
+}
+
 pub struct DbClient {
     pool: SqlitePool,
 }
@@ -106,5 +115,47 @@ impl DbClient {
         }
 
         Ok(None)
+    }
+
+    /// Fetches a dynamic matrix of active database sessions mathematically JOINed alongside explicit strings!
+    pub async fn get_active_games(&self) -> Result<Vec<GameRecord>, sqlx::Error> {
+        let records = sqlx::query!(
+            r#"
+            SELECT 
+                g.id, g.name, g.status, 
+                pw.name as white_name, 
+                pb.name as black_name
+            FROM games g
+            JOIN players pw ON g.white_player_id = pw.id
+            JOIN players pb ON g.black_player_id = pb.id
+            ORDER BY g.updated_at DESC
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        Ok(records.into_iter().map(|rec| GameRecord {
+            id: rec.id,
+            name: rec.name,
+            status: rec.status,
+            white_player: rec.white_name,
+            black_player: rec.black_name,
+        }).collect())
+    }
+
+    /// Recursively fetches the exact historical move vectors for resuming Egui Sandbox arrays natively!
+    pub async fn load_game_history(&self, game_id: i64) -> Result<(String, Vec<String>), sqlx::Error> {
+        // Technically, `games` does not retain `initial_fen` independently currently. We inject standard FIDE root explicitly!
+        let root_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
+
+        let moves = sqlx::query!(
+            "SELECT fen_snapshot FROM moves WHERE game_id = ? ORDER BY move_number ASC",
+            game_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let history = moves.into_iter().map(|r| r.fen_snapshot).collect();
+        Ok((root_fen, history))
     }
 }
