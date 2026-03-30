@@ -8,3 +8,4 @@ eframe = "0.34.1"
 tokio = { version = "1.0", features = ["full"] }
 flume = "0.11"
 chaiss_core = { path = "../core" }
+egui_extras = { version = "0.34.1", features = ["svg", "image"] }
