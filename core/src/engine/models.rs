@@ -272,9 +272,14 @@ impl GameState {
 
     /// Mutates the state structurally, transposing the Piece vector entirely!
     pub fn apply_move(&mut self, from: usize, to: usize, promotion_target: Option<PieceType>) {
+        let is_capture = self.board[to].is_some();
         let mut piece = self.board[from].take();
+        let mut reset_halfmove = is_capture;
         
         if let Some(mut p) = piece {
+            if p.piece_type == PieceType::Pawn {
+                reset_halfmove = true;
+            }
             // Handle Castling Geometry Transpositions
             if p.piece_type == PieceType::King {
                 // Permanently disable castling rights 
@@ -358,7 +363,12 @@ impl GameState {
             self.fullmove_number += 1;
         }
 
-        // TODO: Full halfmove clock bounds
+        // 50-Move Draw Bounds: physically evaluate resets!
+        if reset_halfmove {
+            self.halfmove_clock = 0;
+        } else {
+            self.halfmove_clock += 1;
+        }
     }
 
     /// Evaluates if all geometric paths for the currently active color are violently exhausted natively!
@@ -426,5 +436,17 @@ mod tests {
         
         let terminal = state.evaluate_terminal_state();
         assert_eq!(terminal, Some(GameEndStatus::Checkmate(Color::White)), "Mathematically verifies White's victory!");
+    }
+
+    #[test]
+    fn test_apply_move_fen_output() {
+        let mut state = GameState::from_fen("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2").unwrap();
+        // Nc3 = 57 to 42
+        state.apply_move(57, 42, None);
+        let fen = state.to_fen();
+        println!("Test Output FEN: {}", fen);
+        
+        let state_recovered = GameState::from_fen(&fen).unwrap();
+        assert_eq!(state_recovered.board[42].unwrap().piece_type, PieceType::Knight);
     }
 }

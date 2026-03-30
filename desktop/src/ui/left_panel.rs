@@ -48,9 +48,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     if ui.add_sized([ui.available_width(), 24.0], egui::Button::new(rich_text)).clicked() {
                                         if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
                                             tokio::spawn(async move {
-                                                if let Ok((root_fen, mut history)) = db.load_game_history(g_id).await {
+                                                if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(g_id).await {
                                                     history.insert(0, root_fen);
-                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, game_id: g_id }).await;
+                                                    algebraic.insert(0, "START".to_string());
+                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, algebraic, game_id: g_id }).await;
                                                 }
                                             });
                                         }

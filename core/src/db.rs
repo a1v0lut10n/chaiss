@@ -159,18 +159,25 @@ impl DbClient {
     }
 
     /// Recursively fetches the exact historical move vectors for resuming Egui Sandbox arrays natively!
-    pub async fn load_game_history(&self, game_id: i64) -> Result<(String, Vec<String>), sqlx::Error> {
+    pub async fn load_game_history(&self, game_id: i64) -> Result<(String, Vec<String>, Vec<String>), sqlx::Error> {
         // Technically, `games` does not retain `initial_fen` independently currently. We inject standard FIDE root explicitly!
         let root_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
 
         let moves = sqlx::query!(
-            "SELECT fen_snapshot FROM moves WHERE game_id = ? ORDER BY move_number ASC",
+            "SELECT fen_snapshot, notation FROM moves WHERE game_id = ? ORDER BY move_number ASC",
             game_id
         )
         .fetch_all(&self.pool)
         .await?;
 
-        let history = moves.into_iter().map(|r| r.fen_snapshot).collect();
-        Ok((root_fen, history))
+        let mut fen_history = Vec::new();
+        let mut algebraic_history = Vec::new();
+        
+        for r in moves {
+            fen_history.push(r.fen_snapshot);
+            algebraic_history.push(r.notation);
+        }
+        
+        Ok((root_fen, fen_history, algebraic_history))
     }
 }

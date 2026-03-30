@@ -195,6 +195,9 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 // 1. Push FIDE root to history on the very first active move!
                                 if app.history_stack.is_empty() {
                                     app.history_stack.push(app.game_state.to_fen());
+                                    if app.algebraic_history.is_empty() {
+                                        app.algebraic_history.push("START".to_string());
+                                    }
                                     app.live_db_ply = 1;
                                 }
                                 
@@ -216,14 +219,30 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     app.view_cursor = app.history_stack.len() - 1;
                                     app.live_db_ply = app.history_stack.len();
                                     
+                                    app.algebraic_history.push(algebraic_notation.clone());
+
                                     // Pass explicit FEN layout natively across Flume/Tokio cleanly!
                                     if let (Some(db), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
                                         let move_ply = app.live_db_ply as i64;
                                         let notation = algebraic_notation.clone();
+                                        let fen_clone = fen_snapshot.clone();
                                                                                 
                                         tokio::spawn(async move {
-                                            let _ = db.log_move(game_id, move_ply, &fen_snapshot, &notation).await;
+                                            let _ = db.log_move(game_id, move_ply, &fen_clone, &notation).await;
                                         });
+                                    }
+                                    
+                                    // Seamless LLM Integration recursively natively mimicking Explicit Input 
+                                    if let Some(tx) = &app.llm_tx {
+                                        let payload = chaiss_core::llm::LlmPromptPayload {
+                                            prompt: format!("I physically played the formal move: {}. Assess the structural geometry.", algebraic_notation),
+                                            current_fen: fen_snapshot.clone(),
+                                            ascii_board: app.game_state.to_ascii(),
+                                            algebraic_history: app.algebraic_history.clone(),
+                                            chat_history: app.chat_history.clone(),
+                                            system_role: "Companion".to_string(), // Bound future dynamically!
+                                        };
+                                        let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                     }
                                 }
                                 

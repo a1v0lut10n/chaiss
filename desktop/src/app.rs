@@ -8,7 +8,13 @@ pub enum DbEvent {
     GameCreated { game_id: i64 },
     GameDeleted { game_id: i64 },
     SessionsLoaded { sessions: Vec<GameRecord> },
-    GameResumed { history: Vec<String>, game_id: i64 },
+    GameResumed { history: Vec<String>, algebraic: Vec<String>, game_id: i64 },
+}
+
+pub enum LlmEvent {
+    InferenceRequested(chaiss_core::llm::LlmPromptPayload),
+    TokenStreamed(String),
+    InferenceFinished,
 }
 
 #[derive(Clone)]
@@ -21,6 +27,12 @@ pub struct ChaissApp {
     pub db_client: Option<Arc<DbClient>>,
     pub db_tx: Option<flume::Sender<DbEvent>>,
     pub db_rx: Option<flume::Receiver<DbEvent>>,
+    
+    // Asynchronous LLM Flume Bridges
+    pub llm_tx: Option<flume::Sender<LlmEvent>>,
+    pub llm_rx: Option<flume::Receiver<LlmEvent>>,
+    pub chat_history: Vec<(String, String)>,
+    pub live_llm_response: String,
     
     // UI Modals
     pub show_new_game_modal: bool,
@@ -38,6 +50,7 @@ pub struct ChaissApp {
     
     // History & Exploration Sandbox
     pub history_stack: Vec<String>,
+    pub algebraic_history: Vec<String>,
     pub view_cursor: usize,
     pub sandbox_enabled: bool,
     pub is_exploration_mode: bool,
@@ -52,6 +65,10 @@ impl Default for ChaissApp {
             db_client: None,
             db_tx: None,
             db_rx: None,
+            llm_tx: None,
+            llm_rx: None,
+            chat_history: Vec::new(),
+            live_llm_response: String::new(),
             show_new_game_modal: false,
             new_game_name: "My First Game".to_string(),
             white_player_name: "Human Player".to_string(),
@@ -60,6 +77,7 @@ impl Default for ChaissApp {
             live_db_ply: 0,
             active_sessions: Vec::new(),
             history_stack: Vec::new(),
+            algebraic_history: Vec::new(),
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
@@ -71,6 +89,7 @@ impl Default for ChaissApp {
 impl ChaissApp {
     pub fn new(_cc: &eframe::CreationContext<'_>, db_client: Arc<DbClient>, initial_sessions: Vec<GameRecord>) -> Self {
         let (tx, rx) = flume::unbounded();
+        let (llm_tx, llm_rx) = flume::unbounded();
         let mut app = Self::default();
         app.db_client = Some(db_client);
         
@@ -80,6 +99,8 @@ impl ChaissApp {
         
         app.db_tx = Some(tx);
         app.db_rx = Some(rx);
+        app.llm_tx = Some(llm_tx);
+        app.llm_rx = Some(llm_rx);
         app.active_sessions = initial_sessions;
         app
     }
@@ -112,6 +133,7 @@ impl eframe::App for ChaissApp {
                             self.active_game_id = None;
                             self.game_state = GameState::new();
                             self.history_stack.clear();
+                            self.algebraic_history.clear();
                             self.live_db_ply = 0;
                             self.view_cursor = 0;
                             self.is_exploration_mode = false;
@@ -135,17 +157,19 @@ impl eframe::App for ChaissApp {
                             let latest_id = self.active_sessions[0].id;
                             if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
                                 tokio::spawn(async move {
-                                    if let Ok((root_fen, mut history)) = db.load_game_history(latest_id).await {
+                                    if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(latest_id).await {
                                         history.insert(0, root_fen);
-                                        let _ = tx.send_async(DbEvent::GameResumed { history, game_id: latest_id }).await;
+                                        algebraic.insert(0, "START".to_string());
+                                        let _ = tx.send_async(DbEvent::GameResumed { history, algebraic, game_id: latest_id }).await;
                                     }
                                 });
                             }
                         }
                     }
-                    DbEvent::GameResumed { history, game_id } => {
+                    DbEvent::GameResumed { history, algebraic, game_id } => {
                         self.active_game_id = Some(game_id);
                         self.history_stack = history;
+                        self.algebraic_history = algebraic;
                         
                         // Mutate active board layout to exactly match the final chronological move algebraically!
                         if let Some(final_fen) = self.history_stack.last() {
@@ -166,12 +190,56 @@ impl eframe::App for ChaissApp {
             }
         }
         
+        // 2. Mathematically stream non-blocking Network LLM responses straight onto Egui Geometry safely!
+        if let Some(rx) = &self.llm_rx {
+            while let Ok(event) = rx.try_recv() {
+                match event {
+                    LlmEvent::InferenceRequested(payload) => {
+                        self.chat_history.push(("User".to_string(), payload.prompt.clone()));
+                        self.live_llm_response = String::new();
+                        
+                        // Break memory locks extracting standard pointers
+                        let tx_clone = self.llm_tx.clone().unwrap(); 
+                        let prompt_print = payload.prompt.clone();
+                        
+                        tokio::spawn(async move {
+                            // Forward tokens mathematically via a sub-channel internally!
+                            let (stream_tx, stream_rx) = flume::unbounded::<String>();
+                            
+                            // Spin isolated engine pipeline structurally fetching REST geometry offline
+                            tokio::spawn(async move {
+                                if let Err(e) = chaiss_core::llm::stream_llm_response(payload, stream_tx.clone()).await {
+                                    let _ = stream_tx.send_async(format!("\n[System Error: LLM Architecture Failed! {}]", e)).await;
+                                }
+                            });
+                            
+                            // Re-bundle raw bytes explicitly streaming Egui mathematically!
+                            while let Ok(token) = stream_rx.recv_async().await {
+                                let _ = tx_clone.send_async(LlmEvent::TokenStreamed(token)).await;
+                            }
+                            
+                            let _ = tx_clone.send_async(LlmEvent::InferenceFinished).await;
+                        });
+                        
+                        println!("LLM Payload Dispatched securely via Contextual Injection Arrays! Prompt: {}", prompt_print);
+                    }
+                    LlmEvent::TokenStreamed(token) => {
+                        self.live_llm_response.push_str(&token);
+                    }
+                    LlmEvent::InferenceFinished => {
+                        self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
+                        self.live_llm_response.clear();
+                    }
+                }
+            }
+        }
+        
         // Evaluate dynamic exploration mode natively before drawing layout!
         // You are in exploration if the user manually ticked Sandbox, OR if you scrolled back BEFORE the absolute live DB play vector!
         self.is_exploration_mode = self.sandbox_enabled || (self.history_stack.len() > 0 && self.view_cursor < self.live_db_ply.saturating_sub(1));
 
         ui::left_panel::draw(ctx, self);
-        ui::right_panel::draw(ctx, &mut self.prompt_buffer);
+        ui::right_panel::draw(ctx, self);
         ui::board::draw(ctx, self);
     }
 
