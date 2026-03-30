@@ -33,6 +33,13 @@ impl DbClient {
         Ok(result.last_insert_rowid())
     }
 
+    pub async fn get_or_create_player(&self, name: &str) -> Result<i64, Error> {
+        if let Some(id) = self.get_player_by_name(name).await? {
+            return Ok(id);
+        }
+        self.create_player(name).await
+    }
+
     pub async fn get_player_by_name(&self, name: &str) -> Result<Option<i64>, Error> {
         let record = sqlx::query!(
             "SELECT id FROM players WHERE name = ?",

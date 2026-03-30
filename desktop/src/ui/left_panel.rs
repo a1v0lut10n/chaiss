@@ -22,8 +22,17 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     ui.label(egui::RichText::new("No active sessions natively tracked...").italics());
                 } else {
                     for session in &app.active_sessions {
-                        let btn_text = format!("{} ({} vs {})", session.name, session.white_player, session.black_player);
-                        if ui.button(btn_text).clicked() {
+                        let is_active = app.active_game_id == Some(session.id);
+                        let btn_label = format!("{} ({} vs {})", session.name, session.white_player, session.black_player);
+                        
+                        let rich_text = if is_active {
+                            // Highlight dynamically playing instance natively in explicit Green!
+                            egui::RichText::new(btn_label).strong().color(egui::Color32::from_rgb(100, 255, 100))
+                        } else {
+                            egui::RichText::new(btn_label)
+                        };
+
+                        if ui.button(rich_text).clicked() {
                             // Extract architectural clone bindings for Tokio context
                             if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
                                 let g_id = session.id;
@@ -52,11 +61,11 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     ui.text_edit_singleline(&mut app.new_game_name);
                 });
                 ui.horizontal(|ui| {
-                    ui.label("White Player:");
+                    ui.label("♙ White Player:");
                     ui.text_edit_singleline(&mut app.white_player_name);
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Black Player:");
+                    ui.label("♟ Black Player:");
                     ui.text_edit_singleline(&mut app.black_player_name);
                 });
                 
@@ -77,8 +86,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             
                             // Spin non-blocking async DB generation safely outside 60FPS loop!
                             tokio::spawn(async move {
-                                if let Ok(p1) = db.create_player(&p1_name).await {
-                                    if let Ok(p2) = db.create_player(&p2_name).await {
+                                if let Ok(p1) = db.get_or_create_player(&p1_name).await {
+                                    if let Ok(p2) = db.get_or_create_player(&p2_name).await {
                                         if let Ok(g_id) = db.create_game(&game_title, p1, p2, &start_fen).await {
                                             // Pipeline the resolution natively backwards to egui!
                                             let _ = tx.send_async(crate::app::DbEvent::GameCreated { game_id: g_id }).await;

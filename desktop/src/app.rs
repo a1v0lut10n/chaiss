@@ -72,6 +72,11 @@ impl ChaissApp {
         let (tx, rx) = flume::unbounded();
         let mut app = Self::default();
         app.db_client = Some(db_client);
+        
+        // Explicitly flush the cold-boot array across the pipeline manually!
+        // This crucially synthetically trips the `active_game_id.is_none()` resolver logic natively on frame 1!
+        let _ = tx.send(DbEvent::SessionsLoaded { sessions: initial_sessions.clone() });
+        
         app.db_tx = Some(tx);
         app.db_rx = Some(rx);
         app.active_sessions = initial_sessions;
@@ -99,8 +104,21 @@ impl eframe::App for ChaissApp {
                         }
                     }
                     DbEvent::SessionsLoaded { sessions } => {
-                        self.active_sessions = sessions;
+                        self.active_sessions = sessions.clone();
                         println!("Active SQLite Sessions completely refreshed & injected Egui natively!");
+                        
+                        // On cold boot, automatically deserialize the most recent mathematical Match explicitly!
+                        if self.active_game_id.is_none() && !self.active_sessions.is_empty() {
+                            let latest_id = self.active_sessions[0].id;
+                            if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
+                                tokio::spawn(async move {
+                                    if let Ok((root_fen, mut history)) = db.load_game_history(latest_id).await {
+                                        history.insert(0, root_fen);
+                                        let _ = tx.send_async(DbEvent::GameResumed { history, game_id: latest_id }).await;
+                                    }
+                                });
+                            }
+                        }
                     }
                     DbEvent::GameResumed { history, game_id } => {
                         self.active_game_id = Some(game_id);
