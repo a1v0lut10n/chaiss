@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 pub enum DbEvent {
     GameCreated { game_id: i64 },
+    GameDeleted { game_id: i64 },
     SessionsLoaded { sessions: Vec<GameRecord> },
     GameResumed { history: Vec<String>, game_id: i64 },
 }
@@ -31,6 +32,9 @@ pub struct ChaissApp {
     pub active_game_id: Option<i64>,
     pub live_db_ply: usize, // Tracks the absolute length of mathematically committed DB moves
     pub active_sessions: Vec<GameRecord>,
+    
+    // UI Presentation
+    pub flip_board: bool,
     
     // History & Exploration Sandbox
     pub history_stack: Vec<String>,
@@ -59,6 +63,7 @@ impl Default for ChaissApp {
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
+            flip_board: false,
         }
     }
 }
@@ -68,6 +73,11 @@ impl ChaissApp {
         let (tx, rx) = flume::unbounded();
         let mut app = Self::default();
         app.db_client = Some(db_client);
+        
+        // Explicitly flush the cold-boot array across the pipeline manually!
+        // This crucially synthetically trips the `active_game_id.is_none()` resolver logic natively on frame 1!
+        let _ = tx.send(DbEvent::SessionsLoaded { sessions: initial_sessions.clone() });
+        
         app.db_tx = Some(tx);
         app.db_rx = Some(rx);
         app.active_sessions = initial_sessions;
@@ -94,9 +104,44 @@ impl eframe::App for ChaissApp {
                             });
                         }
                     }
+                    DbEvent::GameDeleted { game_id } => {
+                        println!("SQL Resolution Acquired Natively! Expunged Game ID: {}", game_id);
+                        
+                        // Break mathematical ties completely if we delete the Active viewing matrix!
+                        if self.active_game_id == Some(game_id) {
+                            self.active_game_id = None;
+                            self.game_state = GameState::new();
+                            self.history_stack.clear();
+                            self.live_db_ply = 0;
+                            self.view_cursor = 0;
+                            self.is_exploration_mode = false;
+                        }
+                        
+                        // Mathematically refresh structural Egui Sessions arrays organically!
+                        if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
+                            tokio::spawn(async move {
+                                if let Ok(sessions) = db.get_active_games().await {
+                                    let _ = tx.send_async(DbEvent::SessionsLoaded { sessions }).await;
+                                }
+                            });
+                        }
+                    }
                     DbEvent::SessionsLoaded { sessions } => {
-                        self.active_sessions = sessions;
+                        self.active_sessions = sessions.clone();
                         println!("Active SQLite Sessions completely refreshed & injected Egui natively!");
+                        
+                        // On cold boot, automatically deserialize the most recent mathematical Match explicitly!
+                        if self.active_game_id.is_none() && !self.active_sessions.is_empty() {
+                            let latest_id = self.active_sessions[0].id;
+                            if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
+                                tokio::spawn(async move {
+                                    if let Ok((root_fen, mut history)) = db.load_game_history(latest_id).await {
+                                        history.insert(0, root_fen);
+                                        let _ = tx.send_async(DbEvent::GameResumed { history, game_id: latest_id }).await;
+                                    }
+                                });
+                            }
+                        }
                     }
                     DbEvent::GameResumed { history, game_id } => {
                         self.active_game_id = Some(game_id);

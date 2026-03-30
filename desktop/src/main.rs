@@ -29,6 +29,9 @@ async fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Chaiss - AI Chess Board",
         native_options,
-        Box::new(move |cc| Ok(Box::new(ChaissApp::new(cc, db_client, initial_sessions)))),
+        Box::new(move |cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(ChaissApp::new(cc, db_client, initial_sessions)))
+        }),
     )
 }

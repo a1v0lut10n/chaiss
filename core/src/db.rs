@@ -33,6 +33,13 @@ impl DbClient {
         Ok(result.last_insert_rowid())
     }
 
+    pub async fn get_or_create_player(&self, name: &str) -> Result<i64, Error> {
+        if let Some(id) = self.get_player_by_name(name).await? {
+            return Ok(id);
+        }
+        self.create_player(name).await
+    }
+
     pub async fn get_player_by_name(&self, name: &str) -> Result<Option<i64>, Error> {
         let record = sqlx::query!(
             "SELECT id FROM players WHERE name = ?",
@@ -61,6 +68,14 @@ impl DbClient {
         )
         .execute(&self.pool)
         .await?;
+        Ok(())
+    }
+
+    pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query!("DELETE FROM moves WHERE game_id = ?", game_id).execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM games WHERE id = ?", game_id).execute(&mut *tx).await?;
+        tx.commit().await?;
         Ok(())
     }
 
