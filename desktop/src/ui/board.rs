@@ -146,7 +146,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                         let notation = algebraic_notation.clone();
                                                                                 
                                         tokio::spawn(async move {
-                                            let _ = db.log_move(game_id, move_ply, &notation, &fen_snapshot).await;
+                                            let _ = db.log_move(game_id, move_ply, &fen_snapshot, &notation).await;
                                         });
                                     }
                                 }

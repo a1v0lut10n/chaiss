@@ -16,6 +16,9 @@ async fn main() -> eframe::Result<()> {
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://chaiss.db".to_string());
     let db_client = Arc::new(chaiss_core::db::DbClient::new(&db_url).await.expect("Failed to securely bind SQLite Database locally!"));
 
+    // Fetch previous mathematical SQL sessions before booting graphical frames synchronously!
+    let initial_sessions = db_client.get_active_games().await.unwrap_or_else(|_| Vec::new());
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 800.0])
@@ -26,6 +29,6 @@ async fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Chaiss - AI Chess Board",
         native_options,
-        Box::new(move |cc| Ok(Box::new(ChaissApp::new(cc, db_client)))),
+        Box::new(move |cc| Ok(Box::new(ChaissApp::new(cc, db_client, initial_sessions)))),
     )
 }

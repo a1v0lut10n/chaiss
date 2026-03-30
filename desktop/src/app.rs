@@ -1,11 +1,13 @@
 use eframe::egui;
 use crate::ui;
 use chaiss_core::engine::GameState;
-use chaiss_core::db::DbClient;
+use chaiss_core::db::{DbClient, GameRecord};
 use std::sync::Arc;
 
 pub enum DbEvent {
     GameCreated { game_id: i64 },
+    SessionsLoaded { sessions: Vec<GameRecord> },
+    GameResumed { history: Vec<String>, game_id: i64 },
 }
 
 #[derive(Clone)]
@@ -28,6 +30,7 @@ pub struct ChaissApp {
     // Database Tracking
     pub active_game_id: Option<i64>,
     pub live_db_ply: usize, // Tracks the absolute length of mathematically committed DB moves
+    pub active_sessions: Vec<GameRecord>,
     
     // History & Exploration Sandbox
     pub history_stack: Vec<String>,
@@ -51,6 +54,7 @@ impl Default for ChaissApp {
             black_player_name: "Chaiss GPT".to_string(),
             active_game_id: None,
             live_db_ply: 0,
+            active_sessions: Vec::new(),
             history_stack: Vec::new(),
             view_cursor: 0,
             sandbox_enabled: false,
@@ -60,12 +64,13 @@ impl Default for ChaissApp {
 }
 
 impl ChaissApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>, db_client: Arc<DbClient>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>, db_client: Arc<DbClient>, initial_sessions: Vec<GameRecord>) -> Self {
         let (tx, rx) = flume::unbounded();
         let mut app = Self::default();
         app.db_client = Some(db_client);
         app.db_tx = Some(tx);
         app.db_rx = Some(rx);
+        app.active_sessions = initial_sessions;
         app
     }
 }
@@ -74,11 +79,43 @@ impl eframe::App for ChaissApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // 1. Explicitly receive background database operations mathematically across the barrier!
         if let Some(rx) = &self.db_rx {
-            if let Ok(event) = rx.try_recv() {
+            while let Ok(event) = rx.try_recv() {
                 match event {
                     DbEvent::GameCreated { game_id } => {
                         self.active_game_id = Some(game_id);
                         println!("SQL Resolution Acquired Natively! Bound Game ID: {}", game_id);
+                        
+                        // Automatically fire a Flume DB fetch algebraically to dynamically inject the updated roster UI!
+                        if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
+                            tokio::spawn(async move {
+                                if let Ok(sessions) = db.get_active_games().await {
+                                    let _ = tx.send_async(DbEvent::SessionsLoaded { sessions }).await;
+                                }
+                            });
+                        }
+                    }
+                    DbEvent::SessionsLoaded { sessions } => {
+                        self.active_sessions = sessions;
+                        println!("Active SQLite Sessions completely refreshed & injected Egui natively!");
+                    }
+                    DbEvent::GameResumed { history, game_id } => {
+                        self.active_game_id = Some(game_id);
+                        self.history_stack = history;
+                        
+                        // Mutate active board layout to exactly match the final chronological move algebraically!
+                        if let Some(final_fen) = self.history_stack.last() {
+                            self.game_state = GameState::from_fen(final_fen).expect("Malformed Final Historical Frame Array!");
+                        } else {
+                            self.game_state = GameState::new();
+                        }
+                        
+                        // Hard resynchronize constraints cleanly
+                        self.live_db_ply = self.history_stack.len();
+                        self.view_cursor = self.history_stack.len().saturating_sub(1);
+                        self.sandbox_enabled = false;
+                        self.is_exploration_mode = false;
+                        
+                        println!("Game {} dynamically cleanly resurrected dynamically from Cold Storage!", game_id);
                     }
                 }
             }

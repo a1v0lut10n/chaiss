@@ -18,11 +18,26 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             ui.separator();
             
             egui::ScrollArea::vertical().show(ui, |ui| {
-                for i in 1..=5 {
-                    if ui.button(format!("Human vs Model (Match {})", i)).clicked() {
-                        // Switch active game logic
+                if app.active_sessions.is_empty() {
+                    ui.label(egui::RichText::new("No active sessions natively tracked...").italics());
+                } else {
+                    for session in &app.active_sessions {
+                        let btn_text = format!("{} ({} vs {})", session.name, session.white_player, session.black_player);
+                        if ui.button(btn_text).clicked() {
+                            // Extract architectural clone bindings for Tokio context
+                            if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
+                                let g_id = session.id;
+                                tokio::spawn(async move {
+                                    if let Ok((root_fen, mut history)) = db.load_game_history(g_id).await {
+                                        // Chronologically prepend the FIDE standard initialization map into the vector array algebraically!
+                                        history.insert(0, root_fen);
+                                        let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, game_id: g_id }).await;
+                                    }
+                                });
+                            }
+                        }
+                        ui.add_space(5.0);
                     }
-                    ui.add_space(5.0);
                 }
             });
         });
