@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 pub enum DbEvent {
     GameCreated { game_id: i64 },
+    GameDeleted { game_id: i64 },
     SessionsLoaded { sessions: Vec<GameRecord> },
     GameResumed { history: Vec<String>, game_id: i64 },
 }
@@ -95,6 +96,28 @@ impl eframe::App for ChaissApp {
                         println!("SQL Resolution Acquired Natively! Bound Game ID: {}", game_id);
                         
                         // Automatically fire a Flume DB fetch algebraically to dynamically inject the updated roster UI!
+                        if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
+                            tokio::spawn(async move {
+                                if let Ok(sessions) = db.get_active_games().await {
+                                    let _ = tx.send_async(DbEvent::SessionsLoaded { sessions }).await;
+                                }
+                            });
+                        }
+                    }
+                    DbEvent::GameDeleted { game_id } => {
+                        println!("SQL Resolution Acquired Natively! Expunged Game ID: {}", game_id);
+                        
+                        // Break mathematical ties completely if we delete the Active viewing matrix!
+                        if self.active_game_id == Some(game_id) {
+                            self.active_game_id = None;
+                            self.game_state = GameState::new();
+                            self.history_stack.clear();
+                            self.live_db_ply = 0;
+                            self.view_cursor = 0;
+                            self.is_exploration_mode = false;
+                        }
+                        
+                        // Mathematically refresh structural Egui Sessions arrays organically!
                         if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
                             tokio::spawn(async move {
                                 if let Ok(sessions) = db.get_active_games().await {

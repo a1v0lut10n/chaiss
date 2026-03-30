@@ -71,6 +71,14 @@ impl DbClient {
         Ok(())
     }
 
+    pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query!("DELETE FROM moves WHERE game_id = ?", game_id).execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM games WHERE id = ?", game_id).execute(&mut *tx).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn log_move(&self, game_id: i64, move_number: i64, fen_snapshot: &str, notation: &str) -> Result<(), Error> {
         sqlx::query!(
             "INSERT INTO moves (game_id, move_number, fen_snapshot, notation) VALUES (?, ?, ?, ?)",

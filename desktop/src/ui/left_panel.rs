@@ -32,19 +32,42 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             egui::RichText::new(btn_label)
                         };
 
-                        if ui.button(rich_text).clicked() {
-                            // Extract architectural clone bindings for Tokio context
-                            if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
-                                let g_id = session.id;
-                                tokio::spawn(async move {
-                                    if let Ok((root_fen, mut history)) = db.load_game_history(g_id).await {
-                                        // Chronologically prepend the FIDE standard initialization map into the vector array algebraically!
-                                        history.insert(0, root_fen);
-                                        let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, game_id: g_id }).await;
+                        ui.horizontal(|ui| {
+                            let g_id = session.id;
+                            let mut trigger_delete = false;
+                            
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                // Draw mathematically right-aligned explicit 🗑 element natively!
+                                let trash_btn = egui::Button::new(egui::RichText::new("🗑").color(egui::Color32::RED));
+                                if ui.add_sized([24.0, 24.0], trash_btn).clicked() {
+                                    trigger_delete = true;
+                                }
+                                
+                                // Expand primary Loading string completely across remaining layout algebra cleanly
+                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                                    if ui.add_sized([ui.available_width(), 24.0], egui::Button::new(rich_text)).clicked() {
+                                        if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
+                                            tokio::spawn(async move {
+                                                if let Ok((root_fen, mut history)) = db.load_game_history(g_id).await {
+                                                    history.insert(0, root_fen);
+                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, game_id: g_id }).await;
+                                                }
+                                            });
+                                        }
                                     }
                                 });
+                            });
+                            
+                            if trigger_delete {
+                                if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
+                                    tokio::spawn(async move {
+                                        if db.delete_game(g_id).await.is_ok() {
+                                            let _ = tx.send_async(crate::app::DbEvent::GameDeleted { game_id: g_id }).await;
+                                        }
+                                    });
+                                }
                             }
-                        }
+                        });
                         ui.add_space(5.0);
                     }
                 }
