@@ -34,12 +34,27 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             ui.separator();
             ui.add_space(20.0);
             
-            // Draw visually striking Active Turn text overlay dynamically matching Color state natively!
-            let (turn_text, txt_color) = match app.game_state.active_color {
-                Color::White => ("Active Turn: ♙ White", egui::Color32::from_rgb(220, 220, 220)),
-                Color::Black => ("Active Turn: ♟ Black", egui::Color32::from_rgb(130, 130, 130)),
+            // Draw visually striking Active Turn graphic explicitly mathematically instead of relying on unpredictable glyphs!
+            let (turn_text, circle_fill) = match app.game_state.active_color {
+                Color::White => ("White to Move", egui::Color32::WHITE),
+                Color::Black => ("Black to Move", egui::Color32::BLACK),
             };
-            ui.heading(egui::RichText::new(turn_text).color(txt_color));
+            
+            ui.horizontal(|ui| {
+                ui.heading("Active Turn:");
+                ui.add_space(5.0);
+                
+                let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
+                ui.painter().circle(
+                    rect.center(), 
+                    10.0, 
+                    circle_fill, 
+                    egui::Stroke::new(2.0, egui::Color32::WHITE) // Force a strict White border so Black is definitively visible on dark Egui backgrounds!
+                );
+                
+                ui.add_space(5.0);
+                ui.heading(egui::RichText::new(turn_text).color(egui::Color32::LIGHT_GRAY));
+            });
             
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.checkbox(&mut app.flip_board, "Flip Board (Play as Black)");

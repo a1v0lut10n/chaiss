@@ -61,11 +61,15 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     ui.text_edit_singleline(&mut app.new_game_name);
                 });
                 ui.horizontal(|ui| {
-                    ui.label("♙ White Player:");
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                    ui.painter().circle(rect.center(), 6.0, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                    ui.label("White Player:");
                     ui.text_edit_singleline(&mut app.white_player_name);
                 });
                 ui.horizontal(|ui| {
-                    ui.label("♟ Black Player:");
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                    ui.painter().circle(rect.center(), 6.0, egui::Color32::BLACK, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                    ui.label("Black Player:");
                     ui.text_edit_singleline(&mut app.black_player_name);
                 });
                 
