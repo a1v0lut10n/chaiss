@@ -9,6 +9,9 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
+    // Explicitly load .env contents mathematically into the OS environment vector array!
+    dotenvy::dotenv().ok();
+    
     println!("Starting Chaiss Desktop...");
     chaiss_core::init();
     

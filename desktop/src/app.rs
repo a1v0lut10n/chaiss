@@ -11,6 +11,12 @@ pub enum DbEvent {
     GameResumed { history: Vec<String>, game_id: i64 },
 }
 
+pub enum LlmEvent {
+    ChatSubmitted(String),
+    TokenStreamed(String),
+    InferenceFinished,
+}
+
 #[derive(Clone)]
 pub struct ChaissApp {
     pub prompt_buffer: String,
@@ -21,6 +27,12 @@ pub struct ChaissApp {
     pub db_client: Option<Arc<DbClient>>,
     pub db_tx: Option<flume::Sender<DbEvent>>,
     pub db_rx: Option<flume::Receiver<DbEvent>>,
+    
+    // Asynchronous LLM Flume Bridges
+    pub llm_tx: Option<flume::Sender<LlmEvent>>,
+    pub llm_rx: Option<flume::Receiver<LlmEvent>>,
+    pub chat_history: Vec<(String, String)>,
+    pub live_llm_response: String,
     
     // UI Modals
     pub show_new_game_modal: bool,
@@ -52,6 +64,10 @@ impl Default for ChaissApp {
             db_client: None,
             db_tx: None,
             db_rx: None,
+            llm_tx: None,
+            llm_rx: None,
+            chat_history: Vec::new(),
+            live_llm_response: String::new(),
             show_new_game_modal: false,
             new_game_name: "My First Game".to_string(),
             white_player_name: "Human Player".to_string(),
@@ -71,6 +87,7 @@ impl Default for ChaissApp {
 impl ChaissApp {
     pub fn new(_cc: &eframe::CreationContext<'_>, db_client: Arc<DbClient>, initial_sessions: Vec<GameRecord>) -> Self {
         let (tx, rx) = flume::unbounded();
+        let (llm_tx, llm_rx) = flume::unbounded();
         let mut app = Self::default();
         app.db_client = Some(db_client);
         
@@ -80,6 +97,8 @@ impl ChaissApp {
         
         app.db_tx = Some(tx);
         app.db_rx = Some(rx);
+        app.llm_tx = Some(llm_tx);
+        app.llm_rx = Some(llm_rx);
         app.active_sessions = initial_sessions;
         app
     }
@@ -166,12 +185,55 @@ impl eframe::App for ChaissApp {
             }
         }
         
+        // 2. Mathematically stream non-blocking Network LLM responses straight onto Egui Geometry safely!
+        if let Some(rx) = &self.llm_rx {
+            while let Ok(event) = rx.try_recv() {
+                match event {
+                    LlmEvent::ChatSubmitted(prompt) => {
+                        self.chat_history.push(("User".to_string(), prompt.clone()));
+                        self.live_llm_response = String::new();
+                        
+                        // Break memory locks extracting standard pointers
+                        let tx_clone = self.llm_tx.clone().unwrap(); 
+                        let prompt_print = prompt.clone();
+                        
+                        tokio::spawn(async move {
+                            // Forward tokens mathematically via a sub-channel internally!
+                            let prompt_clone = prompt.clone();
+                            let (stream_tx, stream_rx) = flume::unbounded::<String>();
+                            
+                            // Spin isolated engine pipeline structurally fetching REST geometry offline
+                            tokio::spawn(async move {
+                                let _ = chaiss_core::llm::stream_llm_response(&prompt_clone, stream_tx).await;
+                            });
+                            
+                            // Re-bundle raw bytes explicitly streaming Egui mathematically!
+                            while let Ok(token) = stream_rx.recv_async().await {
+                                let _ = tx_clone.send_async(LlmEvent::TokenStreamed(token)).await;
+                            }
+                            
+                            let _ = tx_clone.send_async(LlmEvent::InferenceFinished).await;
+                        });
+                        
+                        println!("LLM Prompt Dispatched securely out of UI Thread bounds! Prompt: {}", prompt_print);
+                    }
+                    LlmEvent::TokenStreamed(token) => {
+                        self.live_llm_response.push_str(&token);
+                    }
+                    LlmEvent::InferenceFinished => {
+                        self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
+                        self.live_llm_response.clear();
+                    }
+                }
+            }
+        }
+        
         // Evaluate dynamic exploration mode natively before drawing layout!
         // You are in exploration if the user manually ticked Sandbox, OR if you scrolled back BEFORE the absolute live DB play vector!
         self.is_exploration_mode = self.sandbox_enabled || (self.history_stack.len() > 0 && self.view_cursor < self.live_db_ply.saturating_sub(1));
 
         ui::left_panel::draw(ctx, self);
-        ui::right_panel::draw(ctx, &mut self.prompt_buffer);
+        ui::right_panel::draw(ctx, self);
         ui::board::draw(ctx, self);
     }
 
