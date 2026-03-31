@@ -17,7 +17,6 @@ pub enum LlmEvent {
     InferenceFinished,
 }
 
-#[derive(Clone)]
 pub struct ChaissApp {
     pub prompt_buffer: String,
     pub game_state: GameState,
@@ -33,6 +32,8 @@ pub struct ChaissApp {
     pub llm_rx: Option<flume::Receiver<LlmEvent>>,
     pub chat_history: Vec<(String, String)>,
     pub live_llm_response: String,
+    pub silence_llm_analysis: bool,
+    pub markdown_cache: egui_commonmark::CommonMarkCache,
     
     // UI Modals
     pub show_new_game_modal: bool,
@@ -69,6 +70,8 @@ impl Default for ChaissApp {
             llm_rx: None,
             chat_history: Vec::new(),
             live_llm_response: String::new(),
+            silence_llm_analysis: false,
+            markdown_cache: egui_commonmark::CommonMarkCache::default(),
             show_new_game_modal: false,
             new_game_name: "My First Game".to_string(),
             white_player_name: "Human Player".to_string(),

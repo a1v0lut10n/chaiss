@@ -233,16 +233,18 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     }
                                     
                                     // Seamless LLM Integration recursively natively mimicking Explicit Input 
-                                    if let Some(tx) = &app.llm_tx {
-                                        let payload = chaiss_core::llm::LlmPromptPayload {
-                                            prompt: format!("I physically played the formal move: {}. Assess the structural geometry.", algebraic_notation),
-                                            current_fen: fen_snapshot.clone(),
-                                            ascii_board: app.game_state.to_ascii(),
-                                            algebraic_history: app.algebraic_history.clone(),
-                                            chat_history: app.chat_history.clone(),
-                                            system_role: "Companion".to_string(), // Bound future dynamically!
-                                        };
-                                        let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
+                                    if !app.silence_llm_analysis {
+                                        if let Some(tx) = &app.llm_tx {
+                                            let payload = chaiss_core::llm::LlmPromptPayload {
+                                                prompt: format!("I physically played the formal move: {}. Assess the structural geometry.", algebraic_notation),
+                                                current_fen: fen_snapshot.clone(),
+                                                ascii_board: app.game_state.to_ascii(),
+                                                algebraic_history: app.algebraic_history.clone(),
+                                                chat_history: app.chat_history.clone(),
+                                                system_role: "Companion".to_string(), // Bound future dynamically!
+                                            };
+                                            let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
+                                        }
                                     }
                                 }
                                 
