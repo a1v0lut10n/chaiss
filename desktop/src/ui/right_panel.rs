@@ -38,7 +38,68 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     if send_clicked || enter_pressed {
                         let text = app.prompt_buffer.trim().to_string();
                         if !text.is_empty() {
-                            if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text) {
+                            let is_likely_pgn = text.starts_with('[') || text.contains("1.") || text.contains("1-0") || text.contains("0-1") || text.contains("1/2-1/2");
+                            let mut moves_applied = 0;
+                            
+                            // 1. Bulk PGN Injection Route
+                            if is_likely_pgn {
+                                let pgn_parsed = chaiss_core::engine::notation::parse_pgn_moves(&text);
+                                for mv in pgn_parsed {
+                                    if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &mv) {
+                                        let san_mapped = mv.clone();
+                                        if app.history_stack.is_empty() {
+                                            app.history_stack.push(app.game_state.to_fen());
+                                            app.live_db_ply = 1;
+                                        }
+                                        
+                                        app.game_state.apply_move(from, to, promo);
+                                        let fen_snapshot = app.game_state.to_fen();
+                                        
+                                        app.history_stack.push(fen_snapshot.clone());
+                                        app.live_db_ply += 1;
+                                        app.view_cursor = app.history_stack.len() - 1;
+                                        
+                                        if app.algebraic_history.is_empty() {
+                                            app.algebraic_history.push("START".to_string());
+                                        }
+                                        app.algebraic_history.push(mv.clone());
+
+                                        if let (Some(client), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
+                                            let move_ply = app.live_db_ply as i64;
+                                            let fen_clone = fen_snapshot.clone();
+                                            let san_clone = san_mapped.clone();
+                                            tokio::spawn(async move {
+                                                let _ = client.log_move(game_id, move_ply, &fen_clone, &san_clone).await;
+                                            });
+                                        }
+                                        moves_applied += 1;
+                                    } else {
+                                        println!("Halting PGN Sequence mathematically at invalid geometry frame natively: {}", mv);
+                                        break; 
+                                    }
+                                }
+                                
+                                if moves_applied > 0 {
+                                    if !app.silence_llm_analysis {
+                                        if let Some(tx) = &app.llm_tx {
+                                            let payload = chaiss_core::llm::LlmPromptPayload {
+                                                prompt: format!("I dynamically loaded `{}` structural moves natively from a PGN. Assess the resulting geometry organically.", moves_applied),
+                                                current_fen: app.game_state.to_fen(),
+                                                ascii_board: app.game_state.to_ascii(),
+                                                algebraic_history: app.algebraic_history.clone(),
+                                                chat_history: app.chat_history.clone(),
+                                                system_role: "Companion".to_string(),
+                                            };
+                                            let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
+                                        }
+                                    }
+                                    app.prompt_buffer.clear();
+                                }
+                            }
+                            
+                            // 2. Single Explicit Algebraic Node OR Raw Text Fallback
+                            if moves_applied == 0 {
+                                if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text) {
                                 println!("Algebraic Move Captured Structurally! from: {} to: {}", from, to);
                                 
                                 let san_mapped = text.clone();
@@ -84,6 +145,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 }
                                 
                                 app.prompt_buffer.clear();
+                                
+                            // 3. Raw LLM Context Prompt Stream
                             } else {
                                 if let Some(tx) = &app.llm_tx {
                                     let payload = chaiss_core::llm::LlmPromptPayload {
@@ -98,8 +161,9 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 }
                                 app.prompt_buffer.clear();
                             }
+                            }
                         }
-                        response.request_focus(); 
+                        response.request_focus();  
                     }
                 });
 

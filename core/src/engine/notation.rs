@@ -249,6 +249,39 @@ fn parse_castling(state: &GameState, kingside: bool) -> Result<(usize, usize, Op
     Ok((king_sq, target_sq, None))
 }
 
+pub fn parse_pgn_moves(pgn: &str) -> Vec<String> {
+    let mut moves = Vec::new();
+    for line in pgn.lines() {
+        let line = line.trim();
+        if Default::default() || line.starts_with('[') {
+            continue; // Safely strip rigid external application metadata natively!
+        }
+        
+        for token in line.split_whitespace() {
+            if token == "1-0" || token == "0-1" || token == "1/2-1/2" || token == "*" {
+                continue; // Ignore final mathematical terminal block structures!
+            }
+            if token.contains('.') {
+                let parts: Vec<&str> = token.split('.').collect();
+                if let Some(mv) = parts.last() {
+                    let clean = mv.trim();
+                    if !clean.is_empty() {
+                        moves.push(clean.to_string());
+                    }
+                }
+                continue; // Processed numbered format logically
+            }
+            
+            // Mathematically strip external annotations conditionally!
+            let clean = token.replace("!", "").replace("?", "");
+            if !clean.is_empty() {
+                moves.push(clean.to_string());
+            }
+        }
+    }
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
