@@ -249,9 +249,57 @@ fn parse_castling(state: &GameState, kingside: bool) -> Result<(usize, usize, Op
     Ok((king_sq, target_sq, None))
 }
 
+pub fn parse_pgn_moves(pgn: &str) -> Vec<String> {
+    let mut moves = Vec::new();
+    for line in pgn.lines() {
+        let line = line.trim();
+        if Default::default() || line.starts_with('[') {
+            continue; // Safely strip rigid external application metadata natively!
+        }
+        
+        for token in line.split_whitespace() {
+            if token == "1-0" || token == "0-1" || token == "1/2-1/2" || token == "*" {
+                continue; // Ignore final mathematical terminal block structures!
+            }
+            if token.contains('.') {
+                let parts: Vec<&str> = token.split('.').collect();
+                if let Some(mv) = parts.last() {
+                    let clean = mv.trim();
+                    if !clean.is_empty() {
+                        moves.push(clean.to_string());
+                    }
+                }
+                continue; // Processed numbered format logically
+            }
+            
+            // Mathematically strip external annotations conditionally!
+            let clean = token.replace("!", "").replace("?", "");
+            if !clean.is_empty() {
+                moves.push(clean.to_string());
+            }
+        }
+    }
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_pgn_sequence() {
+        let pgn = "1. c4 e5 2. Nc3 Bb4 3. Nd5 Nc6 4. Nxb4 Nxb4 5. a3 Nc6 6. g3 d6 7. Bg2 Bd7 8. d3 Nf6 9. Nf3 O-O 10. O-O e4";
+        let moves = super::parse_pgn_moves(pgn);
+        let mut state = super::super::GameState::new();
+        for m in moves {
+            if let Ok((from, to, promo)) = super::parse_algebraic_move(&state, &m) {
+                state.apply_move(from, to, promo);
+                println!("Success: {}", m);
+            } else {
+                panic!("Fail: {}", m);
+            }
+        }
+    }
 
     #[test]
     fn test_parse_basic_pawn_moves() {

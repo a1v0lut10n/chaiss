@@ -8,7 +8,7 @@ pub enum DbEvent {
     GameCreated { game_id: i64 },
     GameDeleted { game_id: i64 },
     SessionsLoaded { sessions: Vec<GameRecord> },
-    GameResumed { history: Vec<String>, algebraic: Vec<String>, game_id: i64 },
+    GameResumed { history: Vec<String>, algebraic: Vec<String>, chat: Vec<(String, String)>, game_id: i64 },
 }
 
 pub enum LlmEvent {
@@ -17,7 +17,6 @@ pub enum LlmEvent {
     InferenceFinished,
 }
 
-#[derive(Clone)]
 pub struct ChaissApp {
     pub prompt_buffer: String,
     pub game_state: GameState,
@@ -33,6 +32,8 @@ pub struct ChaissApp {
     pub llm_rx: Option<flume::Receiver<LlmEvent>>,
     pub chat_history: Vec<(String, String)>,
     pub live_llm_response: String,
+    pub silence_llm_analysis: bool,
+    pub markdown_cache: egui_commonmark::CommonMarkCache,
     
     // UI Modals
     pub show_new_game_modal: bool,
@@ -54,6 +55,7 @@ pub struct ChaissApp {
     pub view_cursor: usize,
     pub sandbox_enabled: bool,
     pub is_exploration_mode: bool,
+    pub is_llm_thinking: bool,
 }
 
 impl Default for ChaissApp {
@@ -69,6 +71,8 @@ impl Default for ChaissApp {
             llm_rx: None,
             chat_history: Vec::new(),
             live_llm_response: String::new(),
+            silence_llm_analysis: false,
+            markdown_cache: egui_commonmark::CommonMarkCache::default(),
             show_new_game_modal: false,
             new_game_name: "My First Game".to_string(),
             white_player_name: "Human Player".to_string(),
@@ -81,6 +85,7 @@ impl Default for ChaissApp {
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
+            is_llm_thinking: false,
             flip_board: false,
         }
     }
@@ -116,6 +121,11 @@ impl eframe::App for ChaissApp {
                         self.active_game_id = Some(game_id);
                         println!("SQL Resolution Acquired Natively! Bound Game ID: {}", game_id);
                         
+                        // Break mathematical chat matrices natively initializing pure session bindings!
+                        self.chat_history.clear();
+                        self.live_llm_response.clear();
+                        self.prompt_buffer.clear();
+                        
                         // Automatically fire a Flume DB fetch algebraically to dynamically inject the updated roster UI!
                         if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
                             tokio::spawn(async move {
@@ -134,6 +144,9 @@ impl eframe::App for ChaissApp {
                             self.game_state = GameState::new();
                             self.history_stack.clear();
                             self.algebraic_history.clear();
+                            self.chat_history.clear();
+                            self.live_llm_response.clear();
+                            self.prompt_buffer.clear();
                             self.live_db_ply = 0;
                             self.view_cursor = 0;
                             self.is_exploration_mode = false;
@@ -160,16 +173,21 @@ impl eframe::App for ChaissApp {
                                     if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(latest_id).await {
                                         history.insert(0, root_fen);
                                         algebraic.insert(0, "START".to_string());
-                                        let _ = tx.send_async(DbEvent::GameResumed { history, algebraic, game_id: latest_id }).await;
+                                        let chat = db.load_chat_history(latest_id).await.unwrap_or_default();
+                                        let _ = tx.send_async(DbEvent::GameResumed { history, algebraic, chat, game_id: latest_id }).await;
                                     }
                                 });
                             }
                         }
                     }
-                    DbEvent::GameResumed { history, algebraic, game_id } => {
+                    DbEvent::GameResumed { history, algebraic, chat, game_id } => {
                         self.active_game_id = Some(game_id);
                         self.history_stack = history;
                         self.algebraic_history = algebraic;
+                        
+                        self.chat_history = chat;
+                        self.live_llm_response.clear();
+                        self.prompt_buffer.clear();
                         
                         // Mutate active board layout to exactly match the final chronological move algebraically!
                         if let Some(final_fen) = self.history_stack.last() {
@@ -197,6 +215,15 @@ impl eframe::App for ChaissApp {
                     LlmEvent::InferenceRequested(payload) => {
                         self.chat_history.push(("User".to_string(), payload.prompt.clone()));
                         self.live_llm_response = String::new();
+                        self.is_llm_thinking = true;
+                        
+                        // Serialize user payload asynchronously into active match cleanly
+                        if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {
+                            let p_clone = payload.prompt.clone();
+                            tokio::spawn(async move {
+                                let _ = db.log_chat_message(game_id, "User", &p_clone).await;
+                            });
+                        }
                         
                         // Break memory locks extracting standard pointers
                         let tx_clone = self.llm_tx.clone().unwrap(); 
@@ -228,6 +255,16 @@ impl eframe::App for ChaissApp {
                     }
                     LlmEvent::InferenceFinished => {
                         self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
+                        self.is_llm_thinking = false;
+                        
+                        // Serialize AI payload asynchronously tracking dynamic streams cleanly!
+                        if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {
+                            let r_clone = self.live_llm_response.clone();
+                            tokio::spawn(async move {
+                                let _ = db.log_chat_message(game_id, "Agent", &r_clone).await;
+                            });
+                        }
+                        
                         self.live_llm_response.clear();
                     }
                 }

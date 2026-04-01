@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS moves (
     notation TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES games(id),
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 EOF
 
 echo "Database schemas successfully instantiated natively without relying on heavy cargo cli installs!"
