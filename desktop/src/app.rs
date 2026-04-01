@@ -55,6 +55,7 @@ pub struct ChaissApp {
     pub view_cursor: usize,
     pub sandbox_enabled: bool,
     pub is_exploration_mode: bool,
+    pub is_llm_thinking: bool,
 }
 
 impl Default for ChaissApp {
@@ -84,6 +85,7 @@ impl Default for ChaissApp {
             view_cursor: 0,
             sandbox_enabled: false,
             is_exploration_mode: false,
+            is_llm_thinking: false,
             flip_board: false,
         }
     }
@@ -213,6 +215,7 @@ impl eframe::App for ChaissApp {
                     LlmEvent::InferenceRequested(payload) => {
                         self.chat_history.push(("User".to_string(), payload.prompt.clone()));
                         self.live_llm_response = String::new();
+                        self.is_llm_thinking = true;
                         
                         // Serialize user payload asynchronously into active match cleanly
                         if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {
@@ -252,6 +255,7 @@ impl eframe::App for ChaissApp {
                     }
                     LlmEvent::InferenceFinished => {
                         self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
+                        self.is_llm_thinking = false;
                         
                         // Serialize AI payload asynchronously tracking dynamic streams cleanly!
                         if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {

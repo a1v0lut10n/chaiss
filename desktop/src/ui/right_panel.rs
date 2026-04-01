@@ -195,6 +195,15 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             ui.add_space(8.0);
                         }
                     }
+                    
+                    if app.is_llm_thinking && app.live_llm_response.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.spinner();
+                            ui.add_space(5.0);
+                            ui.label(egui::RichText::new("🤖 Agent is analyzing the geometrical pathways...").italics().color(egui::Color32::LIGHT_GRAY));
+                        });
+                        ui.add_space(8.0);
+                    }
                     if !app.live_llm_response.is_empty() {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("🤖 Agent (Streaming): ").color(egui::Color32::LIGHT_GREEN).strong().italics());
