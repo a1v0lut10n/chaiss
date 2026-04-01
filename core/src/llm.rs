@@ -34,6 +34,10 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
         .build()
         .map_err(|e| format!("Failed LLM Build: {:?}", e))?;
 
+    let fen_parts: Vec<&str> = payload.current_fen.split_whitespace().collect();
+    let is_white_turn = fen_parts.get(1).map_or(true, |&p| p == "w");
+    let active_color = if is_white_turn { "WHITE" } else { "BLACK" };
+    
     // 1. Build context mathematically formatting history and explicit ASCII layouts securely
     let formatted_history: String = payload.algebraic_history.iter().enumerate().map(|(i, mov)| format!("{}. {}", i, mov)).collect::<Vec<_>>().join("\n");
     let system_prompt = format!(
@@ -41,11 +45,13 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
         Current FEN String:\n{}\n\n\
         Structural ASCII Board Matrix:\n{}\n\n\
         Full Explicit Match Algebraic Sequence:\n{}\n\n\
+        The geometry currently dictates it is {}'s turn to move. \
         Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.",
         payload.system_role,
         payload.current_fen,
         payload.ascii_board,
-        formatted_history
+        formatted_history,
+        active_color
     );
 
     // 2. Synthesize Context Matrix iteratively mimicking continuous API session strings cleanly

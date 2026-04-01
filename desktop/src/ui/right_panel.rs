@@ -99,7 +99,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             
                             // 2. Single Explicit Algebraic Node OR Raw Text Fallback
                             if moves_applied == 0 {
-                                if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text) {
+                                let is_single_token = text.split_whitespace().count() == 1;
+                                
+                                if is_single_token && chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text).is_ok() {
+                                    let (from, to, promo) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text).unwrap();
                                 println!("Algebraic Move Captured Structurally! from: {} to: {}", from, to);
                                 
                                 let san_mapped = text.clone();
