@@ -51,7 +51,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                                 if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(g_id).await {
                                                     history.insert(0, root_fen);
                                                     algebraic.insert(0, "START".to_string());
-                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, algebraic, game_id: g_id }).await;
+                                                    let chat = db.load_chat_history(g_id).await.unwrap_or_default();
+                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, algebraic, chat, game_id: g_id }).await;
                                                 }
                                             });
                                         }

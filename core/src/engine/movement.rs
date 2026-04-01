@@ -69,7 +69,8 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
             }
 
             // Castling Algebraic Validation!
-            if piece.color == Color::White && sq_idx == 60 { // e1
+            // Mathematically stripped to prevent recursive `is_square_attacked` infinite loops.
+            if false { // e1
                 if state.castling_rights.contains('K') { // Kingside
                     if state.board[61].is_none() && state.board[62].is_none() {
                         if !is_square_attacked(state, 60, Color::Black) && 
@@ -185,6 +186,49 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
                 if let Some(ep_sq) = state.en_passant_target {
                     if cap_idx == ep_sq.index {
                         moves.push(cap_idx);
+                    }
+                }
+            }
+        }
+    }
+
+    // Evaluate Castling natively directly into physically Legal structural bound sequences!
+    if piece.piece_type == PieceType::King {
+        if piece.color == Color::White && sq_idx == 60 { // e1
+            if state.castling_rights.contains('K') { // Kingside
+                if state.board[61].is_none() && state.board[62].is_none() {
+                    if !is_square_attacked(state, 60, Color::Black) && 
+                       !is_square_attacked(state, 61, Color::Black) && 
+                       !is_square_attacked(state, 62, Color::Black) {
+                           moves.push(62); // O-O
+                    }
+                }
+            }
+            if state.castling_rights.contains('Q') { // Queenside
+                if state.board[59].is_none() && state.board[58].is_none() && state.board[57].is_none() {
+                    if !is_square_attacked(state, 60, Color::Black) && 
+                       !is_square_attacked(state, 59, Color::Black) && 
+                       !is_square_attacked(state, 58, Color::Black) {
+                           moves.push(58); // O-O-O
+                    }
+                }
+            }
+        } else if piece.color == Color::Black && sq_idx == 4 { // e8
+            if state.castling_rights.contains('k') { // Kingside
+                if state.board[5].is_none() && state.board[6].is_none() {
+                    if !is_square_attacked(state, 4, Color::White) && 
+                       !is_square_attacked(state, 5, Color::White) && 
+                       !is_square_attacked(state, 6, Color::White) {
+                           moves.push(6); // O-O
+                    }
+                }
+            }
+            if state.castling_rights.contains('q') { // Queenside
+                if state.board[3].is_none() && state.board[2].is_none() && state.board[1].is_none() {
+                    if !is_square_attacked(state, 4, Color::White) && 
+                       !is_square_attacked(state, 3, Color::White) && 
+                       !is_square_attacked(state, 2, Color::White) {
+                           moves.push(2); // O-O-O
                     }
                 }
             }

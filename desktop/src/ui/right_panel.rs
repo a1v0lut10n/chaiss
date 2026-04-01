@@ -174,7 +174,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     if app.chat_history.is_empty() {
                         ui.label(egui::RichText::new("🤖 AI: Initialization complete, awaiting architecture definition...").italics());
                     } else {
-                        for (role, msg) in &app.chat_history {
+                        for (idx, (role, msg)) in app.chat_history.iter().enumerate() {
                             ui.horizontal(|ui| {
                                 if role == "User" {
                                     ui.label(egui::RichText::new("👤 User: ").color(egui::Color32::LIGHT_BLUE).strong());
@@ -184,8 +184,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             });
                             
                             // Natively route explicitly to the new geometric Markdown Caching Engine
-                            egui_commonmark::CommonMarkViewer::new()
-                                .show(ui, &mut app.markdown_cache, msg);
+                            ui.push_id(format!("chat_{}_{}", app.active_game_id.unwrap_or(0), idx), |ui| {
+                                egui_commonmark::CommonMarkViewer::new()
+                                    .show(ui, &mut app.markdown_cache, msg);
+                            });
                                 
                             ui.add_space(8.0);
                         }
@@ -195,8 +197,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             ui.label(egui::RichText::new("🤖 Agent (Streaming): ").color(egui::Color32::LIGHT_GREEN).strong().italics());
                         });
                         
-                        egui_commonmark::CommonMarkViewer::new()
+                        ui.push_id(format!("streaming_{}", app.active_game_id.unwrap_or(0)), |ui| {
+                            egui_commonmark::CommonMarkViewer::new()
                                 .show(ui, &mut app.markdown_cache, &app.live_llm_response);
+                        });
                     }
                 });
         });

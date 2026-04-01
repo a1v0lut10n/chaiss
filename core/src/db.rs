@@ -73,8 +73,12 @@ impl DbClient {
 
     pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
+        
+        // Cascading Relational teardown structure cleanly wiping dependencies beforehand!
+        sqlx::query!("DELETE FROM chat_messages WHERE game_id = ?", game_id).execute(&mut *tx).await?;
         sqlx::query!("DELETE FROM moves WHERE game_id = ?", game_id).execute(&mut *tx).await?;
         sqlx::query!("DELETE FROM games WHERE id = ?", game_id).execute(&mut *tx).await?;
+        
         tx.commit().await?;
         Ok(())
     }
@@ -179,5 +183,31 @@ impl DbClient {
         }
         
         Ok((root_fen, fen_history, algebraic_history))
+    }
+
+    pub async fn log_chat_message(&self, game_id: i64, role: &str, content: &str) -> Result<i64, Error> {
+        let result = sqlx::query!(
+            "INSERT INTO chat_messages (game_id, role, content) VALUES (?, ?, ?)",
+            game_id, role, content
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.last_insert_rowid())
+    }
+
+    pub async fn load_chat_history(&self, game_id: i64) -> Result<Vec<(String, String)>, Error> {
+        let messages = sqlx::query!(
+            "SELECT role, content FROM chat_messages WHERE game_id = ? ORDER BY id ASC",
+            game_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        let mut chat_history = Vec::new();
+        for r in messages {
+            chat_history.push((r.role, r.content));
+        }
+        
+        Ok(chat_history)
     }
 }

@@ -287,6 +287,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_pgn_sequence() {
+        let pgn = "1. c4 e5 2. Nc3 Bb4 3. Nd5 Nc6 4. Nxb4 Nxb4 5. a3 Nc6 6. g3 d6 7. Bg2 Bd7 8. d3 Nf6 9. Nf3 O-O 10. O-O e4";
+        let moves = super::parse_pgn_moves(pgn);
+        let mut state = super::super::GameState::new();
+        for m in moves {
+            if let Ok((from, to, promo)) = super::parse_algebraic_move(&state, &m) {
+                state.apply_move(from, to, promo);
+                println!("Success: {}", m);
+            } else {
+                panic!("Fail: {}", m);
+            }
+        }
+    }
+
+    #[test]
     fn test_parse_basic_pawn_moves() {
         let state = GameState::new();
         // Test e4 mathematically
