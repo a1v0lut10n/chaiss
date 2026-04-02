@@ -236,7 +236,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     if !app.silence_llm_analysis {
                                         if let Some(tx) = &app.llm_tx {
                                             let payload = chaiss_core::llm::LlmPromptPayload {
-                                                prompt: format!("I physically played the formal move: {}. Assess the structural geometry.", algebraic_notation),
+                                                prompt: format!("The formal move `{}` was just executed physically on the board. Assess the structural geometry.", algebraic_notation),
                                                 current_fen: fen_snapshot.clone(),
                                                 ascii_board: app.game_state.to_ascii(),
                                                 algebraic_history: app.algebraic_history.clone(),

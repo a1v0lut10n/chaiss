@@ -73,8 +73,16 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
 
     let mut stream = llm.chat_stream(&messages).await.map_err(|e| format!("Chat Stream err: {}", e))?;
     
-    while let Some(Ok(token)) = stream.next().await {
-        let _ = tx.send_async(token).await;
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(token) => {
+                let _ = tx.send_async(token).await;
+            }
+            Err(e) => {
+                let _ = tx.send_async(format!("\n\n[Network Stream Disconnected Abruptly: {}]", e)).await;
+                break;
+            }
+        }
     }
     
     Ok(())
