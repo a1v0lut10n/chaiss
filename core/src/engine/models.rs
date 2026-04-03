@@ -266,8 +266,64 @@ impl GameState {
                 }
             }
         }
-        
         heat_map
+    }
+
+    /// Synthesizes the Second-Order Predictive Matrix by geometrically forecasting every
+    /// legal 1-ply branch mathematically and overlaying bounds!
+    pub fn generate_predictive_matrix(&self) -> [[(u8, u8); 8]; 8] {
+        let mut aggregate_heat = [[(0u8, 0u8); 8]; 8];
+        
+        for index in 0..64 {
+            if let Some(p) = self.board[index] {
+                if p.color == self.active_color {
+                    let legal_targets = super::movement::get_legal_moves(self, index, p);
+                    for target in legal_targets {
+                        // Mathematically fork the evaluation geometry
+                        let mut branched_state = self.clone();
+                        // Assume Queen promotion implicitly to evaluate maximal geometric consequences
+                        branched_state.apply_move(index, target, Some(PieceType::Queen));
+                        
+                        let branch_heat = branched_state.generate_heat_map();
+                        
+                        for r in 0..8 {
+                            for c in 0..8 {
+                                aggregate_heat[r][c].0 = aggregate_heat[r][c].0.saturating_add(branch_heat[r][c].0);
+                                aggregate_heat[r][c].1 = aggregate_heat[r][c].1.saturating_add(branch_heat[r][c].1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        aggregate_heat
+    }
+
+    /// Dynamically isolates the Top 4 mathematically contested bounds for the AI Payload formatting!
+    pub fn extract_hottest_predictive_squares(&self, matrix: &[[(u8, u8); 8]; 8]) -> Vec<String> {
+        let mut heatmap_scores = Vec::new();
+        
+        for r in 0..8 {
+            for c in 0..8 {
+                let heat_w = matrix[r][c].0;
+                let heat_b = matrix[r][c].1;
+                let total_heat = heat_w.saturating_add(heat_b);
+                
+                if total_heat > 0 {
+                    let sq_idx = r * 8 + c;
+                    let file_char = (b'a' + (sq_idx % 8) as u8) as char;
+                    let rank_char = (b'1' + (7 - (sq_idx / 8)) as u8) as char;
+                    let coord = format!("{}{}", file_char, rank_char);
+                    
+                    heatmap_scores.push((coord, total_heat));
+                }
+            }
+        }
+        
+        // Sort explicitly by maximum absolute geometric density descending
+        heatmap_scores.sort_by(|a, b| b.1.cmp(&a.1));
+        
+        heatmap_scores.into_iter().take(4).map(|(coord, heat)| format!("{} (Heat: {})", coord, heat)).collect()
     }
 
     /// Mutates the state structurally, transposing the Piece vector entirely!

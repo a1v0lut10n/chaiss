@@ -1,5 +1,6 @@
 use eframe::egui;
 use chaiss_core::engine::{GameState, Piece, PieceType, Color, GameEndStatus};
+use crate::app::FocusMatrix;
 
 fn get_image_source_for_piece(piece: &Piece) -> egui::ImageSource<'static> {
     match piece.color {
@@ -103,10 +104,25 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                 ui.add_space(5.0);
                 ui.heading(egui::RichText::new(turn_text).color(egui::Color32::LIGHT_GRAY));
             });
+            ui.add_space(15.0);
             
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.checkbox(&mut app.flip_board, "Flip Board (Play as Black)");
+            ui.horizontal(|ui| {
+                ui.heading("Analysis Overlay:");
+                egui::ComboBox::from_id_source("focus_matrix_selector")
+                    .selected_text(match app.focus_matrix {
+                        FocusMatrix::None => "None",
+                        FocusMatrix::FirstOrder => "First-Order Heat",
+                        FocusMatrix::Predictive => "Predictive Matrix",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut app.focus_matrix, FocusMatrix::None, "None");
+                        ui.selectable_value(&mut app.focus_matrix, FocusMatrix::FirstOrder, "First-Order Heat");
+                        ui.selectable_value(&mut app.focus_matrix, FocusMatrix::Predictive, "Predictive Matrix");
+                    });
             });
+
+            ui.add_space(20.0);
+            ui.checkbox(&mut app.flip_board, "Flip Board (Play as Black)");
         });
         
         ui.add_space(10.0);
@@ -167,7 +183,11 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                 ui.painter().text(rgt_rect.center(), egui::Align2::CENTER_CENTER, &text, egui::FontId::proportional(margin * 0.6), egui::Color32::LIGHT_GRAY);
             }
 
-            let heat_map = app.game_state.generate_heat_map();
+            let heat_map = match app.focus_matrix {
+                FocusMatrix::None => [[(0, 0); 8]; 8],
+                FocusMatrix::FirstOrder => app.game_state.generate_heat_map(),
+                FocusMatrix::Predictive => app.game_state.generate_predictive_matrix(),
+            };
 
             // Render checkerboard grid natively over 0-63 indices
             for row in 0..8 {
@@ -205,7 +225,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     // 3. Draw Dual-Tone Radiance Map pulling structured math tuple overlays dynamically!
                     let (white_heat, black_heat) = heat_map[logical_row][logical_col];
                     if white_heat > 0 || black_heat > 0 {
-                        let max_heat = 3.0; // Optimal scaling for intense overlaps
+                        let max_heat = match app.focus_matrix {
+                            FocusMatrix::Predictive => 25.0, // Scale compound aggregation dynamically
+                            _ => 3.0,
+                        };
                         let w_norm = (white_heat as f32 / max_heat).min(1.0);
                         let b_norm = (black_heat as f32 / max_heat).min(1.0);
                         
@@ -289,6 +312,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                                 ascii_board: app.game_state.to_ascii(),
                                                 algebraic_history: app.algebraic_history.clone(),
                                                 chat_history: app.chat_history.clone(),
+                                                predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                                 system_role: "Companion".to_string(), // Bound future dynamically!
                                             };
                                             let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));

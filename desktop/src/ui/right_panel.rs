@@ -89,6 +89,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                                 ascii_board: app.game_state.to_ascii(),
                                                 algebraic_history: app.algebraic_history.clone(),
                                                 chat_history: app.chat_history.clone(),
+                                                predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                                 system_role: "Companion".to_string(),
                                             };
                                             let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
@@ -142,6 +143,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                             ascii_board: app.game_state.to_ascii(),
                                             algebraic_history: app.algebraic_history.clone(),
                                             chat_history: app.chat_history.clone(),
+                                            predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                             system_role: "Companion".to_string(),
                                         };
                                         let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
@@ -159,6 +161,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                         ascii_board: app.game_state.to_ascii(),
                                         algebraic_history: app.algebraic_history.clone(),
                                         chat_history: app.chat_history.clone(),
+                                        predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                         system_role: "Companion".to_string(),
                                     };
                                     let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
