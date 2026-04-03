@@ -11,6 +11,13 @@ pub enum DbEvent {
     GameResumed { history: Vec<String>, algebraic: Vec<String>, chat: Vec<(String, String)>, game_id: i64 },
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum FocusMatrix {
+    None,
+    FirstOrder,
+    Predictive,
+}
+
 pub enum LlmEvent {
     InferenceRequested(chaiss_core::llm::LlmPromptPayload),
     TokenStreamed(String),
@@ -56,6 +63,9 @@ pub struct ChaissApp {
     pub sandbox_enabled: bool,
     pub is_exploration_mode: bool,
     pub is_llm_thinking: bool,
+    
+    // Matrix Visualization Architecture
+    pub focus_matrix: FocusMatrix,
 }
 
 impl Default for ChaissApp {
@@ -87,6 +97,7 @@ impl Default for ChaissApp {
             is_exploration_mode: false,
             is_llm_thinking: false,
             flip_board: false,
+            focus_matrix: FocusMatrix::FirstOrder,
         }
     }
 }

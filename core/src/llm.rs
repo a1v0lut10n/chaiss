@@ -12,6 +12,7 @@ pub struct LlmPromptPayload {
     pub ascii_board: String,
     pub algebraic_history: Vec<String>,
     pub chat_history: Vec<(String, String)>,
+    pub predictive_matrix_hotspots: Vec<String>,
     pub system_role: String,
 }
 
@@ -40,18 +41,27 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
     
     // 1. Build context mathematically formatting history and explicit ASCII layouts securely
     let formatted_history: String = payload.algebraic_history.iter().enumerate().map(|(i, mov)| format!("{}. {}", i, mov)).collect::<Vec<_>>().join("\n");
+    let mut futuristic_foresight = String::new();
+    if !payload.predictive_matrix_hotspots.is_empty() {
+        futuristic_foresight = format!(
+            "\n\nCRITICAL CONTEXT INJECTION:\nThe Rust Engine's 2nd-Order Predictive Matrix natively resolved that the following squares will become the MOST densely contested structural targets 1-ply into the future: {}\nIncorporate this absolute mathematical foresight organically into your conceptual strategic analysis!",
+            payload.predictive_matrix_hotspots.join(", ")
+        );
+    }
+
     let system_prompt = format!(
         "You are Chaiss, an advanced Chess {} mathematically bound to geometrical analysis.\n\n\
         Current FEN String:\n{}\n\n\
         Structural ASCII Board Matrix:\n{}\n\n\
         Full Explicit Match Algebraic Sequence:\n{}\n\n\
         The geometry currently dictates it is {}'s turn to move. \
-        Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.",
+        Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.{}",
         payload.system_role,
         payload.current_fen,
         payload.ascii_board,
         formatted_history,
-        active_color
+        active_color,
+        futuristic_foresight
     );
 
     // 2. Synthesize Context Matrix iteratively mimicking continuous API session strings cleanly
