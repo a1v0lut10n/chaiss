@@ -5,6 +5,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
     egui::SidePanel::right("chat_panel")
         .resizable(true)
         .min_width(280.0)
+        .max_width(450.0)
         .show(ctx, |ui| {
             ui.heading("LLM Chat & Analysis");
             ui.separator();
@@ -136,7 +137,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 if !app.silence_llm_analysis {
                                     if let Some(tx) = &app.llm_tx {
                                         let payload = chaiss_core::llm::LlmPromptPayload {
-                                            prompt: format!("I played the formal move: {}. Please analyze this move conceptually.", text),
+                                            prompt: format!("The formal move `{}` was just physically executed on the board. Please analyze the resulting structural geometry conceptually.", text),
                                             current_fen: fen_snapshot.clone(),
                                             ascii_board: app.game_state.to_ascii(),
                                             algebraic_history: app.algebraic_history.clone(),
@@ -166,13 +167,14 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             }
                             }
                         }
-                        response.request_focus();  
+                        response.request_focus();
                     }
                 });
 
             // 2. Consume universally what physical rendering space remains dynamically natively!
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
+                .stick_to_bottom(true)
                 .show(ui, |ui| {
                     if app.chat_history.is_empty() {
                         ui.label(egui::RichText::new("🤖 AI: Initialization complete, awaiting architecture definition...").italics());
@@ -197,7 +199,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     }
                     
                     if app.is_llm_thinking && app.live_llm_response.is_empty() {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spinner();
                             ui.add_space(5.0);
                             ui.label(egui::RichText::new("🤖 Agent is analyzing the geometrical pathways...").italics().color(egui::Color32::LIGHT_GRAY));

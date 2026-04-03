@@ -27,12 +27,60 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
     #[allow(deprecated)]
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.horizontal(|ui| {
-            ui.heading(egui::RichText::new("Board Context").strong());
+        egui::TopBottomPanel::bottom("sandbox_nav_panel")
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(10, 10)))
+            .show_inside(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.heading("Sandbox Navigation:");
+                
+                // Toggle explicitly manually forces Forward Sandbox mode 
+                if ui.checkbox(&mut app.sandbox_enabled, "Enable Forward Sandbox").changed() {
+                    if !app.sandbox_enabled {
+                        // Instantly restore persisted state when toggling Sandbox Mode OFF natively!
+                        app.history_stack.truncate(app.live_db_ply);
+                        if app.live_db_ply > 0 {
+                            app.view_cursor = app.live_db_ply - 1;
+                            if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { 
+                                app.game_state = gs; 
+                            }
+                        }
+                    }
+                }
+                
+                if app.is_exploration_mode {
+                    ui.label(egui::RichText::new("EXPLORATION MODE ACTIVE (Not saving to Database)").color(egui::Color32::from_rgb(255, 140, 0))); // Warning Orange
+                } else {
+                    ui.label(egui::RichText::new("LIVE DB TRACKING").color(egui::Color32::from_rgb(0, 200, 0))); // Safe Green
+                }
+            });
             
-            ui.add_space(20.0);
-            ui.separator();
-            ui.add_space(20.0);
+            ui.add_space(5.0);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("<< Start").clicked() && !app.history_stack.is_empty() {
+                    app.view_cursor = 0;
+                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
+                }
+                if ui.button("< Prev Move").clicked() && app.view_cursor > 0 {
+                    app.view_cursor -= 1;
+                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
+                }
+                if ui.button("Next Move >").clicked() && app.view_cursor + 1 < app.history_stack.len() {
+                    app.view_cursor += 1;
+                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
+                }
+                // Live>> Discards the sandbox vector mathematically and resumes from the absolute latest DB layout!
+                if ui.button("Live >>").clicked() {
+                    app.sandbox_enabled = false;
+                    app.history_stack.truncate(app.live_db_ply);
+                    if app.live_db_ply > 0 {
+                        app.view_cursor = app.live_db_ply - 1;
+                        if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
+                    }
+                }
+            });
+        });
+
+        ui.horizontal_wrapped(|ui| {
             
             // Draw visually striking Active Turn graphic explicitly mathematically instead of relying on unpredictable glyphs!
             let (turn_text, circle_fill) = match app.game_state.active_color {
@@ -236,7 +284,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     if !app.silence_llm_analysis {
                                         if let Some(tx) = &app.llm_tx {
                                             let payload = chaiss_core::llm::LlmPromptPayload {
-                                                prompt: format!("I physically played the formal move: {}. Assess the structural geometry.", algebraic_notation),
+                                                prompt: format!("The formal move `{}` was just executed physically on the board. Assess the structural geometry.", algebraic_notation),
                                                 current_fen: fen_snapshot.clone(),
                                                 ascii_board: app.game_state.to_ascii(),
                                                 algebraic_history: app.algebraic_history.clone(),
@@ -322,58 +370,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     egui::Color32::WHITE,
                 );
             }
-            
             ui.add_space(20.0);
-
-            // Scaffold the non-destructive History Scrubber and Exploration Mode flags!
-            ui.horizontal(|ui| {
-                ui.heading("Sandbox Navigation:");
-                
-                // Toggle explicitly manually forces Forward Sandbox mode 
-                if ui.checkbox(&mut app.sandbox_enabled, "Enable Forward Sandbox").changed() {
-                    if !app.sandbox_enabled {
-                        // Instantly restore persisted state when toggling Sandbox Mode OFF natively!
-                        app.history_stack.truncate(app.live_db_ply);
-                        if app.live_db_ply > 0 {
-                            app.view_cursor = app.live_db_ply - 1;
-                            if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { 
-                                app.game_state = gs; 
-                            }
-                        }
-                    }
-                }
-                
-                if app.is_exploration_mode {
-                    ui.label(egui::RichText::new("EXPLORATION MODE ACTIVE (Not saving to Database)").color(egui::Color32::from_rgb(255, 140, 0))); // Warning Orange
-                } else {
-                    ui.label(egui::RichText::new("LIVE DB TRACKING").color(egui::Color32::from_rgb(0, 200, 0))); // Safe Green
-                }
-            });
-            
-            ui.add_space(5.0);
-            ui.horizontal(|ui| {
-                if ui.button("<< Start").clicked() && !app.history_stack.is_empty() {
-                    app.view_cursor = 0;
-                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
-                }
-                if ui.button("< Prev Move").clicked() && app.view_cursor > 0 {
-                    app.view_cursor -= 1;
-                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
-                }
-                if ui.button("Next Move >").clicked() && app.view_cursor + 1 < app.history_stack.len() {
-                    app.view_cursor += 1;
-                    if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
-                }
-                // Live>> Discards the sandbox vector mathematically and resumes from the absolute latest DB layout!
-                if ui.button("Live >>").clicked() {
-                    app.sandbox_enabled = false;
-                    app.history_stack.truncate(app.live_db_ply);
-                    if app.live_db_ply > 0 {
-                        app.view_cursor = app.live_db_ply - 1;
-                        if let Ok(gs) = GameState::from_fen(&app.history_stack[app.view_cursor]) { app.game_state = gs; }
-                    }
-                }
-            });
         }
     });
 }
