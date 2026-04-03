@@ -136,7 +136,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 if !app.silence_llm_analysis {
                                     if let Some(tx) = &app.llm_tx {
                                         let payload = chaiss_core::llm::LlmPromptPayload {
-                                            prompt: format!("I played the formal move: {}. Please analyze this move conceptually.", text),
+                                            prompt: format!("The formal move `{}` was just physically executed on the board. Please analyze the resulting structural geometry conceptually.", text),
                                             current_fen: fen_snapshot.clone(),
                                             ascii_board: app.game_state.to_ascii(),
                                             algebraic_history: app.algebraic_history.clone(),
@@ -166,7 +166,6 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             }
                             }
                         }
-                        response.request_focus();  
                     }
                 });
 
