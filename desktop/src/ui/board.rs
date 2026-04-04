@@ -278,6 +278,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     app.history_stack.truncate(app.view_cursor + 1);
                                     
                                     app.game_state.apply_move(sel_idx, index, None);
+                                    app.ai_predictive_arrows.clear();
                                     app.history_stack.push(app.game_state.to_fen());
                                     app.view_cursor = app.history_stack.len() - 1;
                                 } else {
@@ -320,6 +321,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     }
                                 }
                                 
+                                app.ai_predictive_arrows.clear();
                                 app.selected_square = None;
                             } else {
                                 // Illegally clicked square. Revert active tracking unless clicking our own piece to swap
@@ -368,6 +370,60 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         let img_rect = egui::Rect::from_center_size(square_rect.center(), img_size);
                         ui.put(img_rect, image);
                     }
+                }
+            } // End of board loops!
+            
+            // 5. Draw visual AI Predictive Arrows traversing the generated grid mappings structurally!
+            if !app.ai_predictive_arrows.is_empty() {
+                let arrow_count = app.ai_predictive_arrows.len();
+                for (idx, &(from, to)) in app.ai_predictive_arrows.iter().enumerate() {
+                    let from_r = from / 8;
+                    let from_c = from % 8;
+                    let to_r = to / 8;
+                    let to_c = to % 8;
+                    
+                    let log_from_r = if app.flip_board { 7 - from_r } else { from_r };
+                    let log_from_c = if app.flip_board { 7 - from_c } else { from_c };
+                    let log_to_r = if app.flip_board { 7 - to_r } else { to_r };
+                    let log_to_c = if app.flip_board { 7 - to_c } else { to_c };
+                    
+                    // Anchor directly securely using mathematical offsets natively
+                    let from_pos = grid_start + egui::vec2(log_from_c as f32 * square_size + square_size * 0.5, log_from_r as f32 * square_size + square_size * 0.5);
+                    let to_pos = grid_start + egui::vec2(log_to_c as f32 * square_size + square_size * 0.5, log_to_r as f32 * square_size + square_size * 0.5);
+                    
+                    let vector = to_pos - from_pos;
+                    let direction = vector.normalized();
+                    
+                    // Pull the structural arrow back slightly from the explicit center bounds dynamically!
+                    let adjusted_from = from_pos + direction * (square_size * 0.15);
+                    let adjusted_to = to_pos - direction * (square_size * 0.15);
+                    let adjusted_vector = adjusted_to - adjusted_from;
+                    let adjusted_direction = adjusted_vector.normalized();
+                    
+                    // Fade visually based on depth (max depth 4)
+                    let alpha_fade = 1.0 - (idx as f32 / (arrow_count as f32).max(1.0) * 0.7); 
+                    let color = egui::Color32::from_rgba_premultiplied(0, 200, 255, (255.0 * alpha_fade) as u8);
+                    
+                    // Custom Geometrical Rendering natively overriding crude Egui primitives!
+                    let line_thickness = square_size * 0.08;
+                    let head_length = square_size * 0.25;
+                    let head_width = square_size * 0.25;
+                    let shaft_end = adjusted_to - adjusted_direction * head_length;
+                    
+                    // 1. Draw shaft line
+                    ui.painter().line_segment([adjusted_from, shaft_end], egui::Stroke::new(line_thickness, color));
+                    
+                    // 2. Draw perfectly flushed Triangle Head structurally
+                    let normal = egui::vec2(-adjusted_direction.y, adjusted_direction.x);
+                    let p1 = adjusted_to;
+                    let p2 = shaft_end + normal * (head_width / 2.0);
+                    let p3 = shaft_end - normal * (head_width / 2.0);
+                    
+                    ui.painter().add(egui::Shape::convex_polygon(
+                        vec![p1, p2, p3],
+                        color,
+                        egui::Stroke::NONE,
+                    ));
                 }
             }
 

@@ -55,7 +55,10 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
         Structural ASCII Board Matrix:\n{}\n\n\
         Full Explicit Match Algebraic Sequence:\n{}\n\n\
         The geometry currently dictates it is {}'s turn to move. \
-        Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.{}",
+        Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.{}
+        
+        CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis, you MUST provide exactly one hypothesized continuation line up to 4 plies deep recursively, formatted distinctly exactly on a single line like this:
+        ### PREDICTIVE MATRIX: e4, e5, Nf3, Nc6",
         payload.system_role,
         payload.current_fen,
         payload.ascii_board,

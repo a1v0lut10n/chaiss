@@ -182,18 +182,14 @@ pub fn parse_algebraic_move(state: &GameState, san: &str) -> Result<(usize, usiz
 
     if !prefix.is_empty() {
         let first_char = prefix.chars().next().unwrap();
-        if let Some(p) = super::models::Piece::from_char(first_char) {
-            if "NnRrqQbBkK".contains(first_char) {
-                target_piece_type = p.piece_type;
-                for c in prefix.chars().skip(1) {
-                    if ('a'..='h').contains(&c) {
-                        from_file_constraint = Some((c as u8 - b'a') as usize);
-                    } else if ('1'..='8').contains(&c) {
-                        from_rank_constraint = Some(8 - c.to_digit(10).unwrap() as usize);
-                    }
+        if "NRQBK".contains(first_char) {
+            target_piece_type = super::models::Piece::from_char(first_char).unwrap().piece_type;
+            for c in prefix.chars().skip(1) {
+                if ('a'..='h').contains(&c) {
+                    from_file_constraint = Some((c as u8 - b'a') as usize);
+                } else if ('1'..='8').contains(&c) {
+                    from_rank_constraint = Some(8 - c.to_digit(10).unwrap() as usize);
                 }
-            } else {
-                from_file_constraint = Some((first_char as u8 - b'a') as usize);
             }
         } else if ('a'..='h').contains(&first_char) { // Fallback for pure pawn mapping (exd5)
             from_file_constraint = Some((first_char as u8 - b'a') as usize);

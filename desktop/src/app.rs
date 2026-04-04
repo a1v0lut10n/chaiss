@@ -66,6 +66,7 @@ pub struct ChaissApp {
     
     // Matrix Visualization Architecture
     pub focus_matrix: FocusMatrix,
+    pub ai_predictive_arrows: Vec<(usize, usize)>,
 }
 
 impl Default for ChaissApp {
@@ -98,6 +99,7 @@ impl Default for ChaissApp {
             is_llm_thinking: false,
             flip_board: false,
             focus_matrix: FocusMatrix::FirstOrder,
+            ai_predictive_arrows: Vec::new(),
         }
     }
 }
@@ -136,6 +138,7 @@ impl eframe::App for ChaissApp {
                         self.chat_history.clear();
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
+                        self.ai_predictive_arrows.clear();
                         
                         // Automatically fire a Flume DB fetch algebraically to dynamically inject the updated roster UI!
                         if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
@@ -158,6 +161,7 @@ impl eframe::App for ChaissApp {
                             self.chat_history.clear();
                             self.live_llm_response.clear();
                             self.prompt_buffer.clear();
+                            self.ai_predictive_arrows.clear();
                             self.live_db_ply = 0;
                             self.view_cursor = 0;
                             self.is_exploration_mode = false;
@@ -199,6 +203,7 @@ impl eframe::App for ChaissApp {
                         self.chat_history = chat;
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
+                        self.ai_predictive_arrows.clear();
                         
                         // Mutate active board layout to exactly match the final chronological move algebraically!
                         if let Some(final_fen) = self.history_stack.last() {
@@ -212,6 +217,28 @@ impl eframe::App for ChaissApp {
                         self.view_cursor = self.history_stack.len().saturating_sub(1);
                         self.sandbox_enabled = false;
                         self.is_exploration_mode = false;
+                        
+                        // Scan for any previously recorded predictive geometry inherently bridging across session bounds!
+                        for (role, msg) in self.chat_history.iter().rev() {
+                            if role == "Agent" {
+                                if let Some(matrix_idx) = msg.find("### PREDICTIVE MATRIX:") {
+                                    let substring = &msg[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
+                                    let sequence: Vec<&str> = substring.split(',').map(|s| s.trim()).collect();
+                                    
+                                    let mut sim_state = self.game_state.clone();
+                                    for ply in sequence {
+                                        let clean_ply = ply.replace(|c: char| !c.is_alphanumeric(), "");
+                                        if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&sim_state, &clean_ply) {
+                                            self.ai_predictive_arrows.push((from, to));
+                                            sim_state.apply_move(from, to, promo);
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+                                break; // Only mathematically parse the definitive *latest* geometrical inference!
+                            }
+                        }
                         
                         println!("Game {} dynamically cleanly resurrected dynamically from Cold Storage!", game_id);
                     }
@@ -267,6 +294,26 @@ impl eframe::App for ChaissApp {
                     LlmEvent::InferenceFinished => {
                         self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
                         self.is_llm_thinking = false;
+                        
+                        // Parse visual geometrical continuations structurally from the inference!
+                        self.ai_predictive_arrows.clear();
+                        if let Some(matrix_idx) = self.live_llm_response.find("### PREDICTIVE MATRIX:") {
+                            let substring = &self.live_llm_response[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
+                            let sequence: Vec<&str> = substring.split(',').map(|s| s.trim()).collect();
+                            
+                            let mut sim_state = self.game_state.clone();
+                            for ply in sequence {
+                                // Strip punctuation mathematically just in case!
+                                let clean_ply = ply.replace(|c: char| !c.is_alphanumeric(), "");
+                                if let Ok((from, to, promo)) = chaiss_core::engine::notation::parse_algebraic_move(&sim_state, &clean_ply) {
+                                    self.ai_predictive_arrows.push((from, to));
+                                    sim_state.apply_move(from, to, promo);
+                                } else {
+                                    break; // Discard sequence securely tracking geometry bounds if parse structurally fails natively
+                                }
+                            }
+                        }
+
                         
                         // Serialize AI payload asynchronously tracking dynamic streams cleanly!
                         if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {
