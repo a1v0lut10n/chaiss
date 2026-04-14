@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT \n                g.id, g.name, g.status, \n                pw.name as white_name, \n                pb.name as black_name\n            FROM games g\n            JOIN players pw ON g.white_player_id = pw.id\n            JOIN players pb ON g.black_player_id = pb.id\n            ORDER BY g.updated_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "status",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "white_name",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "black_name",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1dfc71c35103a630f89ce12c86322753fd18b3a46198d5dd159c2cfc8a02d8ed"
+}
