@@ -37,18 +37,13 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    git clone <repository-url>
    cd chaiss
    ```
-2. **Database Setup:**
-   Initialize the local SQLite database by running the setup script (this will create `chaiss.db` and the required schemas):
-   ```bash
-   ./tools/scripts/init_db.sh
-   ```
-3. **Environment Configuration:**
+2. **Environment Configuration:**
    Copy the provided `.env.example` to `.env` and fill in your desired backend, model, and API keys.
    ```bash
    cp .env.example .env
    ```
-4. **Run Locally:**
-   Thanks to the pre-processed `sqlx` cache, the application can be built purely offline. Just run:
+3. **Run Locally:**
+   Thanks to the pre-processed `sqlx` cache and auto-executing built-in Rust migrations, the application can be built and initialized purely offline and is 100% cross-platform. Just run:
    ```bash
    cargo run --release
    ```

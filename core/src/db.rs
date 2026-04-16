@@ -17,9 +17,19 @@ pub struct DbClient {
 
 impl DbClient {
     pub async fn new(database_url: &str) -> Result<Self, Error> {
+        use std::str::FromStr;
+        use sqlx::sqlite::SqliteConnectOptions;
+
+        let options = SqliteConnectOptions::from_str(database_url)?
+            .create_if_missing(true);
+
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
-            .connect(database_url).await?;
+            .connect_with(options).await?;
+
+        // Automatically run migrations on startup natively inside Rust!
+        sqlx::migrate!("./migrations").run(&pool).await?;
+
         Ok(Self { pool })
     }
 
