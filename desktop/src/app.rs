@@ -205,11 +205,21 @@ impl eframe::App for ChaissApp {
                         self.prompt_buffer.clear();
                         self.ai_predictive_arrows.clear();
                         
-                        // Mutate active board layout to exactly match the final chronological move algebraically!
                         if let Some(final_fen) = self.history_stack.last() {
                             self.game_state = GameState::from_fen(final_fen).expect("Malformed Final Historical Frame Array!");
                         } else {
                             self.game_state = GameState::new();
+                        }
+                        
+                        // Restore Purely Algebraic Resignation / Game-Over Vectors!
+                        if let Some(last_move) = self.algebraic_history.last() {
+                            if last_move == "1-0" {
+                                self.game_state.manual_terminal_status = Some(chaiss_core::engine::GameEndStatus::Resignation(chaiss_core::engine::Color::White));
+                            } else if last_move == "0-1" {
+                                self.game_state.manual_terminal_status = Some(chaiss_core::engine::GameEndStatus::Resignation(chaiss_core::engine::Color::Black));
+                            } else if last_move == "1/2-1/2" {
+                                self.game_state.manual_terminal_status = Some(chaiss_core::engine::GameEndStatus::Stalemate);
+                            }
                         }
                         
                         // Hard resynchronize constraints cleanly

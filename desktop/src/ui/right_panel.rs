@@ -99,6 +99,47 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 }
                             }
                             
+                            // 1b. Intercept Manual Resignation String Algebraically Natively
+                            if moves_applied == 0 {
+                                let lower_text = text.to_lowercase();
+                                let mut manual_resign = None;
+                                if lower_text == "1-0" || lower_text == "white wins" || lower_text == "black resigned" {
+                                    manual_resign = Some(("1-0".to_string(), chaiss_core::engine::Color::White));
+                                } else if lower_text == "0-1" || lower_text == "black wins" || lower_text == "white resigned" {
+                                    manual_resign = Some(("0-1".to_string(), chaiss_core::engine::Color::Black));
+                                }
+
+                                if let Some((san_mapped, winner)) = manual_resign {
+                                    println!("Manual Game Termination Captured: {:?} Wins", winner);
+                                    app.game_state.manual_terminal_status = Some(chaiss_core::engine::GameEndStatus::Resignation(winner));
+                                    
+                                    if app.history_stack.is_empty() {
+                                        app.history_stack.push(app.game_state.to_fen());
+                                        app.live_db_ply = 1;
+                                    }
+                                    
+                                    let fen_snapshot = app.game_state.to_fen();
+                                    app.history_stack.push(fen_snapshot.clone());
+                                    app.live_db_ply += 1;
+                                    app.view_cursor = app.history_stack.len() - 1;
+                                    
+                                    if app.algebraic_history.is_empty() {
+                                        app.algebraic_history.push("START".to_string());
+                                    }
+                                    app.algebraic_history.push(san_mapped.clone());
+
+                                    if let (Some(client), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
+                                        let move_ply = app.live_db_ply as i64;
+                                        let fen_clone = fen_snapshot.clone();
+                                        tokio::spawn(async move {
+                                            let _ = client.log_move(game_id, move_ply, &fen_clone, &san_mapped).await;
+                                        });
+                                    }
+                                    app.prompt_buffer.clear();
+                                    moves_applied += 1; // Structurally blocks fallbacks safely
+                                }
+                            }
+                            
                             // 2. Single Explicit Algebraic Node OR Raw Text Fallback
                             if moves_applied == 0 {
                                 let is_single_token = text.split_whitespace().count() == 1;
