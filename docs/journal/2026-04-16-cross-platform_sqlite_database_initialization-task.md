@@ -1,0 +1,6 @@
+- `[x]` Delete `tools/scripts/init_db.sh`
+- `[x]` Extract schema and create `migrations/20260415000000_init.sql`
+- `[x]` Verify/Add `migrate` feature to `sqlx` in `core/Cargo.toml`
+- `[x]` Update `core/src/db.rs` to use `SqliteConnectOptions` with `create_if_missing(true)` and run `sqlx::migrate!()`
+- `[x]` Run `cargo check` to ensure the project `.sqlx` cache is updated if needed (also fixed `flume` mismatch)
+- `[x]` Update `README.md` instructions

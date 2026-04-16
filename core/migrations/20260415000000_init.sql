@@ -1,12 +1,3 @@
-#!/bin/bash
-set -e
-
-# Change into the project root
-cd "$(dirname "$0")/../.."
-
-echo "Initializing SQLite Database 'chaiss.db' locally..."
-
-sqlite3 chaiss.db <<EOF
 CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -39,6 +30,3 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     content TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-EOF
-
-echo "Database schemas successfully instantiated natively without relying on heavy cargo cli installs!"

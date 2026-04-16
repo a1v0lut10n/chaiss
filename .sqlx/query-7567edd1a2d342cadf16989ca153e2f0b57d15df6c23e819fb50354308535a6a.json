@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO games (name, white_player_id, black_player_id, current_fen, status) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "7567edd1a2d342cadf16989ca153e2f0b57d15df6c23e819fb50354308535a6a"
+}
