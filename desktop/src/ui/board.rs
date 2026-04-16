@@ -103,6 +103,40 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                 
                 ui.add_space(5.0);
                 ui.heading(egui::RichText::new(turn_text).color(egui::Color32::LIGHT_GRAY));
+
+                if terminal_state.is_none() {
+                    ui.add_space(15.0);
+                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").color(egui::Color32::from_rgb(255, 100, 100)));
+                    if ui.add(resign_btn).clicked() {
+                        let loser = app.game_state.active_color;
+                        let winner = loser.opposite();
+                        let result_str = if winner == Color::White { "1-0".to_string() } else { "0-1".to_string() };
+                        
+                        app.game_state.manual_terminal_status = Some(GameEndStatus::Resignation(winner));
+                        
+                        if app.history_stack.is_empty() {
+                            app.history_stack.push(app.game_state.to_fen());
+                            app.live_db_ply = 1;
+                        }
+                        
+                        let fen_snapshot = app.game_state.to_fen();
+                        app.history_stack.push(fen_snapshot.clone());
+                        app.live_db_ply += 1;
+                        app.view_cursor = app.history_stack.len() - 1;
+                        
+                        if app.algebraic_history.is_empty() {
+                            app.algebraic_history.push("START".to_string());
+                        }
+                        app.algebraic_history.push(result_str.clone());
+
+                        if let (Some(client), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
+                            let move_ply = app.live_db_ply as i64;
+                            tokio::spawn(async move {
+                                let _ = client.log_move(game_id, move_ply, &fen_snapshot, &result_str).await;
+                            });
+                        }
+                    }
+                }
             });
             ui.add_space(15.0);
             
@@ -436,6 +470,9 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                 let text = match status {
                     GameEndStatus::Checkmate(winner) => {
                         format!("Checkmate!\n{:?} Wins", winner)
+                    },
+                    GameEndStatus::Resignation(winner) => {
+                        format!("Resignation!\n{:?} Wins", winner)
                     },
                     GameEndStatus::Stalemate => {
                         "Stalemate!\nDraw".to_string()

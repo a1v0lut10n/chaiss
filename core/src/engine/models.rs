@@ -28,6 +28,7 @@ pub enum PieceType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameEndStatus {
     Checkmate(Color), // Represents the Winner naturally
+    Resignation(Color), // Represents the Winner manually
     Stalemate,
 }
 
@@ -98,6 +99,7 @@ pub struct GameState {
     pub en_passant_target: Option<Square>,
     pub halfmove_clock: u16,
     pub fullmove_number: u16,
+    pub manual_terminal_status: Option<GameEndStatus>,
 }
 
 impl GameState {
@@ -165,6 +167,7 @@ impl GameState {
             en_passant_target,
             halfmove_clock,
             fullmove_number,
+            manual_terminal_status: None,
         })
     }
 
@@ -429,6 +432,10 @@ impl GameState {
 
     /// Evaluates if all geometric paths for the currently active color are violently exhausted natively!
     pub fn evaluate_terminal_state(&self) -> Option<GameEndStatus> {
+        if self.manual_terminal_status.is_some() {
+            return self.manual_terminal_status;
+        }
+
         let mut has_moves = false;
         
         // Loop purely to test mathematical bounds 
