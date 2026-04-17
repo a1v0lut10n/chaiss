@@ -36,29 +36,34 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             let g_id = session.id;
                             let mut trigger_delete = false;
                             
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                // Draw mathematically right-aligned explicit 🗑 element natively!
-                                let trash_btn = egui::Button::new(egui::RichText::new("🗑").color(egui::Color32::RED));
-                                if ui.add_sized([24.0, 24.0], trash_btn).clicked() {
-                                    trigger_delete = true;
-                                }
-                                
-                                // Expand primary Loading string completely across remaining layout algebra cleanly
-                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                                    if ui.add_sized([ui.available_width(), 24.0], egui::Button::new(rich_text)).clicked() {
-                                        if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
-                                            tokio::spawn(async move {
-                                                if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(g_id).await {
-                                                    history.insert(0, root_fen);
-                                                    algebraic.insert(0, "START".to_string());
-                                                    let chat = db.load_chat_history(g_id).await.unwrap_or_default();
-                                                    let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, algebraic, chat, game_id: g_id }).await;
-                                                }
-                                            });
+                            // Trash takes exactly 24.0 pixels at the right
+                            let trash_width = 24.0;
+                            let text_width = ui.available_width() - trash_width - ui.spacing().item_spacing.x;
+                            
+                            // Use SelectableLabels for pills natively
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+                            
+                            let pill_res = ui.allocate_ui(egui::vec2(text_width, 0.0), |ui| {
+                                ui.selectable_label(is_active, rich_text)
+                            }).inner;
+                            
+                            if pill_res.clicked() {
+                                if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {
+                                    tokio::spawn(async move {
+                                        if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(g_id).await {
+                                            history.insert(0, root_fen);
+                                            algebraic.insert(0, "START".to_string());
+                                            let chat = db.load_chat_history(g_id).await.unwrap_or_default();
+                                            let _ = tx.send_async(crate::app::DbEvent::GameResumed { history, algebraic, chat, game_id: g_id }).await;
                                         }
-                                    }
-                                });
-                            });
+                                    });
+                                }
+                            }
+                            
+                            let trash_btn = egui::Button::new(egui::RichText::new("🗑").color(egui::Color32::from_rgb(200, 50, 50)));
+                            if ui.add_sized([trash_width, 24.0], trash_btn).clicked() {
+                                trigger_delete = true;
+                            }
                             
                             if trigger_delete {
                                 if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone()) {

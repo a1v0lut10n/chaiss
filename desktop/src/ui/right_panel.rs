@@ -7,6 +7,12 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
         .min_width(280.0)
         .max_width(450.0)
         .show(ctx, |ui| {
+            
+            // Explicitly increase font sizes inside the chat panel for High-Res screens natively!
+            if let Some(body_style) = ui.style_mut().text_styles.get_mut(&egui::TextStyle::Body) {
+                body_style.size = 16.0; // Base is typically 14
+            }
+            
             ui.heading("LLM Chat & Analysis");
             ui.separator();
 
@@ -227,8 +233,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             ui.horizontal(|ui| {
                                 if role == "User" {
                                     ui.label(egui::RichText::new("👤 User: ").color(egui::Color32::LIGHT_BLUE).strong());
-                                } else {
+                                } else if role == "Agent" {
                                     ui.label(egui::RichText::new("🤖 Agent: ").color(egui::Color32::LIGHT_GREEN).strong());
+                                } else {
+                                    ui.label(egui::RichText::new("⚠️ System: ").color(egui::Color32::from_rgb(255, 140, 0)).strong());
                                 }
                             });
                             

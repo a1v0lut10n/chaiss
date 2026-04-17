@@ -90,9 +90,6 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             };
             
             ui.horizontal(|ui| {
-                ui.heading("Active Turn:");
-                ui.add_space(5.0);
-                
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
                 ui.painter().circle(
                     rect.center(), 
@@ -106,7 +103,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
                 if terminal_state.is_none() {
                     ui.add_space(15.0);
-                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").color(egui::Color32::from_rgb(255, 100, 100)));
+                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").heading().color(egui::Color32::from_rgb(255, 100, 100)));
                     if ui.add(resign_btn).clicked() {
                         let loser = app.game_state.active_color;
                         let winner = loser.opposite();
@@ -381,14 +378,16 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
                     // Render Native Guidance Dots
                     if let Some(sel_idx) = app.selected_square {
-                        let active_piece = app.game_state.board[sel_idx].unwrap();
-                        let legal_moves = chaiss_core::engine::movement::get_legal_moves(&app.game_state, sel_idx, active_piece);
-                        if legal_moves.contains(&index) {
-                            ui.painter().circle_filled(
-                                square_rect.center(),
-                                square_size * 0.15,
-                                egui::Color32::from_rgba_premultiplied(0, 0, 0, 80), // Faint black dot targeting landing zone!
-                            );
+                        // Protect against desync dynamically explicitly!
+                        if let Some(active_piece) = app.game_state.board[sel_idx] {
+                            let legal_moves = chaiss_core::engine::movement::get_legal_moves(&app.game_state, sel_idx, active_piece);
+                            if legal_moves.contains(&index) {
+                                ui.painter().circle_filled(
+                                    square_rect.center(),
+                                    square_size * 0.15,
+                                    egui::Color32::from_rgba_premultiplied(50, 200, 50, 150), // Vibrant translucent green landing zone!
+                                );
+                            }
                         }
                     }
 

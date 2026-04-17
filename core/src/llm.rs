@@ -18,18 +18,27 @@ pub struct LlmPromptPayload {
 
 // Orchestrate mathematically generic non-blocking HTTP REST streaming logic directly interacting with Gemini 3.1!
 pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let api_key = std::env::var("GOOGLE_API_KEY").unwrap_or_else(|_| "TESTKEY".to_string());
+    let llm_backend_str = std::env::var("LLM_BACKEND").unwrap_or_else(|_| "google".to_string()).to_lowercase();
+    
+    let (backend_enum, api_key_env, default_model) = match llm_backend_str.as_str() {
+        "openai" => (LLMBackend::OpenAI, "OPENAI_API_KEY", "gpt-4-turbo"),
+        "anthropic" => (LLMBackend::Anthropic, "ANTHROPIC_API_KEY", "claude-3-opus-20240229"),
+        "ollama" => (LLMBackend::Ollama, "", "llama3"), // Added fallback for local testing maybe
+        "google" | _ => (LLMBackend::Google, "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
+    };
+
+    let api_key = std::env::var(api_key_env).unwrap_or_else(|_| "TESTKEY".to_string());
     
     // Validate we actually have a test key or an env var mapped, else error gracefully without crashing!
-    if api_key == "TESTKEY" {
-        let _ = tx.send_async("\n[System Warning: No GOOGLE_API_KEY exported natively in your terminal! Please restart your desktop client with `GOOGLE_API_KEY=your_key_here cargo run --bin desktop` to leverage Gemini natively.]".to_string()).await;
-        return Ok(());
+    // Skip key check for Ollama / Local backends
+    if api_key == "TESTKEY" && backend_enum != LLMBackend::Ollama {
+        return Err(format!("No {} exported natively in your terminal! Please ensure your `.env` file is loaded correctly and you have restarted the application.", api_key_env).into());
     }
 
     let llm = LLMBuilder::new()
-        .backend(LLMBackend::Google)
+        .backend(backend_enum)
         .api_key(api_key.clone())
-        .model("gemini-3.1-pro-preview") // Frontier Gemini architecture structurally mapping rigorous mathematical constraints
+        .model(default_model) // Frontier architecture structurally mapping rigorous mathematical constraints
         .max_tokens(8000)
         .temperature(0.7)
         .build()
@@ -92,8 +101,7 @@ pub async fn stream_llm_response(payload: LlmPromptPayload, tx: Sender<String>) 
                 let _ = tx.send_async(token).await;
             }
             Err(e) => {
-                let _ = tx.send_async(format!("\n\n[Network Stream Disconnected Abruptly: {}]", e)).await;
-                break;
+                return Err(format!("Network Stream Disconnected Abruptly: {}", e).into());
             }
         }
     }
