@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT role, content FROM chat_messages WHERE game_id = ? ORDER BY id ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "role",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "content",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5ae448745556066c82ce39178b7c77be1a5f184187e3082eed5bb00ed3121216"
+}

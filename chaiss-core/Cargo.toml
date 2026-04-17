@@ -1,7 +1,11 @@
 [package]
-name = "chaiss_core"
+name = "chaiss-core"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "Intelligent backend AI Core mapping chess geometry organically."
+license = "Apache-2.0"
+repository = "https://github.com/a1v0lut10n/chaiss"
+keywords = ["chess", "llm", "ai"]
 
 [dependencies]
 flume = "0.12.0"

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT fen_snapshot FROM moves WHERE game_id = ? ORDER BY move_number DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "fen_snapshot",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "543b8ccf5535be28ecbb78e3c6773f716b3ce25fe3bac8602cd44167b6cc8af3"
+}

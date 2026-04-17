@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT fen_snapshot, notation FROM moves WHERE game_id = ? ORDER BY move_number ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "fen_snapshot",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "notation",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "24f180f1a6f04350b9f442d4a2bd97553d5dd6c7aaf289b1f5c8e94e83c02bf8"
+}

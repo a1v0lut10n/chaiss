@@ -133,7 +133,7 @@ impl eframe::App for ChaissApp {
                 match event {
                     DbEvent::GameCreated { game_id } => {
                         self.active_game_id = Some(game_id);
-                        println!("SQL Resolution Acquired Natively! Bound Game ID: {}", game_id);
+                        println!("Created new match with ID: {}", game_id);
                         
                         // Break mathematical chat matrices natively initializing pure session bindings!
                         self.game_state = GameState::new();
@@ -157,7 +157,7 @@ impl eframe::App for ChaissApp {
                         }
                     }
                     DbEvent::GameDeleted { game_id } => {
-                        println!("SQL Resolution Acquired Natively! Expunged Game ID: {}", game_id);
+                        println!("Deleted game with ID: {}", game_id);
                         
                         // Break mathematical ties completely if we delete the Active viewing matrix!
                         if self.active_game_id == Some(game_id) {
@@ -186,7 +186,7 @@ impl eframe::App for ChaissApp {
                     }
                     DbEvent::SessionsLoaded { sessions } => {
                         self.active_sessions = sessions.clone();
-                        println!("Active SQLite Sessions completely refreshed & injected Egui natively!");
+                        println!("Loaded active sessions from database.");
                         
                         // On cold boot, automatically deserialize the most recent mathematical Match explicitly!
                         if self.active_game_id.is_none() && !self.active_sessions.is_empty() {
@@ -259,7 +259,7 @@ impl eframe::App for ChaissApp {
                             }
                         }
                         
-                        println!("Game {} dynamically cleanly resurrected dynamically from Cold Storage!", game_id);
+                        println!("Resumed game {} from database.", game_id);
                     }
                 }
             }
@@ -306,7 +306,7 @@ impl eframe::App for ChaissApp {
                             }
                         });
                         
-                        println!("LLM Payload Dispatched securely via Contextual Injection Arrays! Prompt: {}", prompt_print);
+                        println!("Dispatched LLM prompt: {}", prompt_print);
                     }
                     LlmEvent::TokenStreamed(token) => {
                         self.live_llm_response.push_str(&token);
