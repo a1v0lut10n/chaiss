@@ -331,6 +331,9 @@ impl GameState {
 
     /// Mutates the state structurally, transposing the Piece vector entirely!
     pub fn apply_move(&mut self, from: usize, to: usize, promotion_target: Option<PieceType>) {
+        // A direct physical piece translation fundamentally shatters any explicit manual overrides organically!
+        self.manual_terminal_status = None;
+        
         let is_capture = self.board[to].is_some();
         let mut piece = self.board[from].take();
         let mut reset_halfmove = is_capture;

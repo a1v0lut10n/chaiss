@@ -136,6 +136,11 @@ impl eframe::App for ChaissApp {
                         println!("SQL Resolution Acquired Natively! Bound Game ID: {}", game_id);
                         
                         // Break mathematical chat matrices natively initializing pure session bindings!
+                        self.game_state = GameState::new();
+                        self.history_stack.clear();
+                        self.algebraic_history.clear();
+                        self.live_db_ply = 0;
+                        self.view_cursor = 0;
                         self.chat_history.clear();
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
