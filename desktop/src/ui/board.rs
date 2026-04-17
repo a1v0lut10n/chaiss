@@ -90,9 +90,6 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             };
             
             ui.horizontal(|ui| {
-                ui.heading("Active Turn:");
-                ui.add_space(5.0);
-                
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
                 ui.painter().circle(
                     rect.center(), 
@@ -106,7 +103,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
                 if terminal_state.is_none() {
                     ui.add_space(15.0);
-                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").color(egui::Color32::from_rgb(255, 100, 100)));
+                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").heading().color(egui::Color32::from_rgb(255, 100, 100)));
                     if ui.add(resign_btn).clicked() {
                         let loser = app.game_state.active_color;
                         let winner = loser.opposite();

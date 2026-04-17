@@ -21,6 +21,7 @@ pub enum FocusMatrix {
 pub enum LlmEvent {
     InferenceRequested(chaiss_core::llm::LlmPromptPayload),
     TokenStreamed(String),
+    SystemMessage(String),
     InferenceFinished,
 }
 
@@ -280,11 +281,14 @@ impl eframe::App for ChaissApp {
                         tokio::spawn(async move {
                             // Forward tokens mathematically via a sub-channel internally!
                             let (stream_tx, stream_rx) = flume::unbounded::<String>();
+                            let tx_clone_2 = tx_clone.clone();
                             
                             // Spin isolated engine pipeline structurally fetching REST geometry offline
                             tokio::spawn(async move {
                                 if let Err(e) = chaiss_core::llm::stream_llm_response(payload, stream_tx.clone()).await {
-                                    let _ = stream_tx.send_async(format!("\n[System Error: LLM Architecture Failed! {}]", e)).await;
+                                    let _ = tx_clone_2.send_async(LlmEvent::SystemMessage(format!("[System Error: {}]", e))).await;
+                                } else {
+                                    let _ = tx_clone_2.send_async(LlmEvent::InferenceFinished).await;
                                 }
                             });
                             
@@ -292,14 +296,17 @@ impl eframe::App for ChaissApp {
                             while let Ok(token) = stream_rx.recv_async().await {
                                 let _ = tx_clone.send_async(LlmEvent::TokenStreamed(token)).await;
                             }
-                            
-                            let _ = tx_clone.send_async(LlmEvent::InferenceFinished).await;
                         });
                         
                         println!("LLM Payload Dispatched securely via Contextual Injection Arrays! Prompt: {}", prompt_print);
                     }
                     LlmEvent::TokenStreamed(token) => {
                         self.live_llm_response.push_str(&token);
+                    }
+                    LlmEvent::SystemMessage(msg) => {
+                        self.chat_history.push(("System".to_string(), msg));
+                        self.is_llm_thinking = false;
+                        self.live_llm_response.clear();
                     }
                     LlmEvent::InferenceFinished => {
                         self.chat_history.push(("Agent".to_string(), self.live_llm_response.clone()));
