@@ -2,7 +2,7 @@
 
 Welcome to the **Chaiss** documentation. This guide covers everything you need to know to get started with the application, navigate the interface, and securely explore chess using AI analysis.
 
-![Chaiss: Deep Blue vs Kasparov 1996](../static/Deep_Blue_vs_Kasparov_1996-Game-1.png)
+![Chaiss: Deep Blue vs Kasparov 1996](../static/Deep_Blue_vs_Kasparov-1996-Game-1.png)
 
 ## Creating a Game
 
