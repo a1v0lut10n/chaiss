@@ -1464,7 +1464,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "chaiss_core"
+name = "chaiss"
+version = "0.1.0"
+dependencies = [
+ "chaiss-core",
+ "dotenvy",
+ "eframe",
+ "egui_commonmark",
+ "egui_extras",
+ "flume 0.12.0",
+ "image",
+ "tokio",
+]
+
+[[package]]
+name = "chaiss-core"
 version = "0.1.0"
 dependencies = [
  "flume 0.12.0",
@@ -1826,20 +1840,6 @@ dependencies = [
  "rustc_version",
  "syn 2.0.117",
  "unicode-xid",
-]
-
-[[package]]
-name = "desktop"
-version = "0.1.0"
-dependencies = [
- "chaiss_core",
- "dotenvy",
- "eframe",
- "egui_commonmark",
- "egui_extras",
- "flume 0.12.0",
- "image",
- "tokio",
 ]
 
 [[package]]
