@@ -48,6 +48,10 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    cargo run --release
    ```
 
+## User Guide
+
+For detailed instructions on how to use the dual-control mechanisms, launch a match, parse raw PGN text directly into the structural Egui modules, and securely interrogate the AI backend, please see the explicit **[Chaiss User Guide](docs/user_guide.md)**.
+
 ## Development and Contributions
 
 For a detailed breakdown of the features, architectural choices, and upcoming roadmap, please refer to the `docs/requirements/chaiss_requirements.md` file.
