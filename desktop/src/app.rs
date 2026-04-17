@@ -141,6 +141,7 @@ impl eframe::App for ChaissApp {
                         self.algebraic_history.clear();
                         self.live_db_ply = 0;
                         self.view_cursor = 0;
+                        self.selected_square = None;
                         self.chat_history.clear();
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
@@ -168,6 +169,7 @@ impl eframe::App for ChaissApp {
                             self.live_llm_response.clear();
                             self.prompt_buffer.clear();
                             self.ai_predictive_arrows.clear();
+                            self.selected_square = None;
                             self.live_db_ply = 0;
                             self.view_cursor = 0;
                             self.is_exploration_mode = false;
@@ -210,6 +212,7 @@ impl eframe::App for ChaissApp {
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
                         self.ai_predictive_arrows.clear();
+                        self.selected_square = None;
                         
                         if let Some(final_fen) = self.history_stack.last() {
                             self.game_state = GameState::from_fen(final_fen).expect("Malformed Final Historical Frame Array!");

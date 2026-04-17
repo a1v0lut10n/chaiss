@@ -378,14 +378,16 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
                     // Render Native Guidance Dots
                     if let Some(sel_idx) = app.selected_square {
-                        let active_piece = app.game_state.board[sel_idx].unwrap();
-                        let legal_moves = chaiss_core::engine::movement::get_legal_moves(&app.game_state, sel_idx, active_piece);
-                        if legal_moves.contains(&index) {
-                            ui.painter().circle_filled(
-                                square_rect.center(),
-                                square_size * 0.15,
-                                egui::Color32::from_rgba_premultiplied(0, 0, 0, 80), // Faint black dot targeting landing zone!
-                            );
+                        // Protect against desync dynamically explicitly!
+                        if let Some(active_piece) = app.game_state.board[sel_idx] {
+                            let legal_moves = chaiss_core::engine::movement::get_legal_moves(&app.game_state, sel_idx, active_piece);
+                            if legal_moves.contains(&index) {
+                                ui.painter().circle_filled(
+                                    square_rect.center(),
+                                    square_size * 0.15,
+                                    egui::Color32::from_rgba_premultiplied(50, 200, 50, 150), // Vibrant translucent green landing zone!
+                                );
+                            }
                         }
                     }
 
