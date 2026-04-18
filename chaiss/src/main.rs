@@ -8,7 +8,7 @@ use app::ChaissApp;
 use std::sync::Arc;
 
 fn load_icon() -> Option<Arc<egui::IconData>> {
-    let image_data = include_bytes!("../../static/chaiss-logo.png");
+    let image_data = include_bytes!("../assets/chaiss-logo.png");
     let image = image::load_from_memory(image_data).ok()?;
     let image = image.to_rgba8();
     Some(Arc::new(egui::IconData {
