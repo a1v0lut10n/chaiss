@@ -27,9 +27,17 @@ pub async fn stream_llm_response(
 
     let (backend_enum, api_key_env, default_model) = match llm_backend_str.as_str() {
         "openai" => (LLMBackend::OpenAI, "OPENAI_API_KEY", "gpt-4-turbo"),
-        "anthropic" => (LLMBackend::Anthropic, "ANTHROPIC_API_KEY", "claude-3-opus-20240229"),
+        "anthropic" => (
+            LLMBackend::Anthropic,
+            "ANTHROPIC_API_KEY",
+            "claude-3-opus-20240229",
+        ),
         "ollama" => (LLMBackend::Ollama, "", "llama3"), // Added fallback for local testing maybe
-        _ => (LLMBackend::Google, "GOOGLE_API_KEY", "gemini-3.1-pro-preview"),
+        _ => (
+            LLMBackend::Google,
+            "GOOGLE_API_KEY",
+            "gemini-3.1-pro-preview",
+        ),
     };
 
     let api_key = std::env::var(api_key_env).unwrap_or_else(|_| "TESTKEY".to_string());

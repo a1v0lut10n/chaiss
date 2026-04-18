@@ -80,13 +80,14 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                 // e1
                 if state.castling_rights.contains('K') {
                     // Kingside
-                    if state.board[61].is_none() && state.board[62].is_none()
+                    if state.board[61].is_none()
+                        && state.board[62].is_none()
                         && !is_square_attacked(state, 60, Color::Black)
-                            && !is_square_attacked(state, 61, Color::Black)
-                            && !is_square_attacked(state, 62, Color::Black)
-                        {
-                            attacks.push(62);
-                        }
+                        && !is_square_attacked(state, 61, Color::Black)
+                        && !is_square_attacked(state, 62, Color::Black)
+                    {
+                        attacks.push(62);
+                    }
                 }
                 if state.castling_rights.contains('Q') {
                     // Queenside
@@ -94,23 +95,24 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                         && state.board[58].is_none()
                         && state.board[57].is_none()
                         && !is_square_attacked(state, 60, Color::Black)
-                            && !is_square_attacked(state, 59, Color::Black)
-                            && !is_square_attacked(state, 58, Color::Black)
-                        {
-                            attacks.push(58);
-                        }
+                        && !is_square_attacked(state, 59, Color::Black)
+                        && !is_square_attacked(state, 58, Color::Black)
+                    {
+                        attacks.push(58);
+                    }
                 }
             } else if piece.color == Color::Black && sq_idx == 4 {
                 // e8
                 if state.castling_rights.contains('k') {
                     // Kingside
-                    if state.board[5].is_none() && state.board[6].is_none()
+                    if state.board[5].is_none()
+                        && state.board[6].is_none()
                         && !is_square_attacked(state, 4, Color::White)
-                            && !is_square_attacked(state, 5, Color::White)
-                            && !is_square_attacked(state, 6, Color::White)
-                        {
-                            attacks.push(6);
-                        }
+                        && !is_square_attacked(state, 5, Color::White)
+                        && !is_square_attacked(state, 6, Color::White)
+                    {
+                        attacks.push(6);
+                    }
                 }
                 if state.castling_rights.contains('q') {
                     // Queenside
@@ -118,11 +120,11 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                         && state.board[2].is_none()
                         && state.board[1].is_none()
                         && !is_square_attacked(state, 4, Color::White)
-                            && !is_square_attacked(state, 3, Color::White)
-                            && !is_square_attacked(state, 2, Color::White)
-                        {
-                            attacks.push(2);
-                        }
+                        && !is_square_attacked(state, 3, Color::White)
+                        && !is_square_attacked(state, 2, Color::White)
+                    {
+                        attacks.push(2);
+                    }
                 }
             }
         }
@@ -214,13 +216,14 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
             // e1
             if state.castling_rights.contains('K') {
                 // Kingside
-                if state.board[61].is_none() && state.board[62].is_none()
+                if state.board[61].is_none()
+                    && state.board[62].is_none()
                     && !is_square_attacked(state, 60, Color::Black)
-                        && !is_square_attacked(state, 61, Color::Black)
-                        && !is_square_attacked(state, 62, Color::Black)
-                    {
-                        moves.push(62); // O-O
-                    }
+                    && !is_square_attacked(state, 61, Color::Black)
+                    && !is_square_attacked(state, 62, Color::Black)
+                {
+                    moves.push(62); // O-O
+                }
             }
             if state.castling_rights.contains('Q') {
                 // Queenside
@@ -228,33 +231,36 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
                     && state.board[58].is_none()
                     && state.board[57].is_none()
                     && !is_square_attacked(state, 60, Color::Black)
-                        && !is_square_attacked(state, 59, Color::Black)
-                        && !is_square_attacked(state, 58, Color::Black)
-                    {
-                        moves.push(58); // O-O-O
-                    }
+                    && !is_square_attacked(state, 59, Color::Black)
+                    && !is_square_attacked(state, 58, Color::Black)
+                {
+                    moves.push(58); // O-O-O
+                }
             }
         } else if piece.color == Color::Black && sq_idx == 4 {
             // e8
             if state.castling_rights.contains('k') {
                 // Kingside
-                if state.board[5].is_none() && state.board[6].is_none()
+                if state.board[5].is_none()
+                    && state.board[6].is_none()
                     && !is_square_attacked(state, 4, Color::White)
-                        && !is_square_attacked(state, 5, Color::White)
-                        && !is_square_attacked(state, 6, Color::White)
-                    {
-                        moves.push(6); // O-O
-                    }
+                    && !is_square_attacked(state, 5, Color::White)
+                    && !is_square_attacked(state, 6, Color::White)
+                {
+                    moves.push(6); // O-O
+                }
             }
             if state.castling_rights.contains('q') {
                 // Queenside
-                if state.board[3].is_none() && state.board[2].is_none() && state.board[1].is_none()
+                if state.board[3].is_none()
+                    && state.board[2].is_none()
+                    && state.board[1].is_none()
                     && !is_square_attacked(state, 4, Color::White)
-                        && !is_square_attacked(state, 3, Color::White)
-                        && !is_square_attacked(state, 2, Color::White)
-                    {
-                        moves.push(2); // O-O-O
-                    }
+                    && !is_square_attacked(state, 3, Color::White)
+                    && !is_square_attacked(state, 2, Color::White)
+                {
+                    moves.push(2); // O-O-O
+                }
             }
         }
     }
