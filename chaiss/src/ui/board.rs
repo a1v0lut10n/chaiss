@@ -35,8 +35,8 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                 ui.heading("Sandbox Navigation:");
 
                 // Toggle explicitly manually forces Forward Sandbox mode
-                if ui.checkbox(&mut app.sandbox_enabled, "Enable Forward Sandbox").changed() {
-                    if !app.sandbox_enabled {
+                if ui.checkbox(&mut app.sandbox_enabled, "Enable Forward Sandbox").changed()
+                    && !app.sandbox_enabled {
                         // Instantly restore persisted state when toggling Sandbox Mode OFF natively!
                         app.history_stack.truncate(app.live_db_ply);
                         if app.live_db_ply > 0 {
@@ -46,7 +46,6 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                             }
                         }
                     }
-                }
 
                 if app.is_exploration_mode {
                     ui.label(egui::RichText::new("EXPLORATION MODE ACTIVE (Not saving to Database)").color(egui::Color32::from_rgb(255, 140, 0))); // Warning Orange

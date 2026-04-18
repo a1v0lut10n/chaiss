@@ -28,7 +28,7 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                 f += df;
 
                 // Bounds check
-                if r < 0 || r > 7 || f < 0 || f > 7 {
+                if !(0..=7).contains(&r) || !(0..=7).contains(&f) {
                     break;
                 }
 
@@ -60,7 +60,7 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
             for &(dr, df) in KNIGHT_JUMPS.iter() {
                 let r = rank + dr;
                 let f = file + df;
-                if r >= 0 && r <= 7 && f >= 0 && f <= 7 {
+                if (0..=7).contains(&r) && (0..=7).contains(&f) {
                     attacks.push((r * 8 + f) as usize);
                 }
             }
@@ -69,7 +69,7 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
             for &(dr, df) in ORTHOGONAL.iter().chain(DIAGONAL.iter()) {
                 let r = rank + dr;
                 let f = file + df;
-                if r >= 0 && r <= 7 && f >= 0 && f <= 7 {
+                if (0..=7).contains(&r) && (0..=7).contains(&f) {
                     attacks.push((r * 8 + f) as usize);
                 }
             }
@@ -80,55 +80,49 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
                 // e1
                 if state.castling_rights.contains('K') {
                     // Kingside
-                    if state.board[61].is_none() && state.board[62].is_none() {
-                        if !is_square_attacked(state, 60, Color::Black)
+                    if state.board[61].is_none() && state.board[62].is_none()
+                        && !is_square_attacked(state, 60, Color::Black)
                             && !is_square_attacked(state, 61, Color::Black)
                             && !is_square_attacked(state, 62, Color::Black)
                         {
                             attacks.push(62);
                         }
-                    }
                 }
                 if state.castling_rights.contains('Q') {
                     // Queenside
                     if state.board[59].is_none()
                         && state.board[58].is_none()
                         && state.board[57].is_none()
-                    {
-                        if !is_square_attacked(state, 60, Color::Black)
+                        && !is_square_attacked(state, 60, Color::Black)
                             && !is_square_attacked(state, 59, Color::Black)
                             && !is_square_attacked(state, 58, Color::Black)
                         {
                             attacks.push(58);
                         }
-                    }
                 }
             } else if piece.color == Color::Black && sq_idx == 4 {
                 // e8
                 if state.castling_rights.contains('k') {
                     // Kingside
-                    if state.board[5].is_none() && state.board[6].is_none() {
-                        if !is_square_attacked(state, 4, Color::White)
+                    if state.board[5].is_none() && state.board[6].is_none()
+                        && !is_square_attacked(state, 4, Color::White)
                             && !is_square_attacked(state, 5, Color::White)
                             && !is_square_attacked(state, 6, Color::White)
                         {
                             attacks.push(6);
                         }
-                    }
                 }
                 if state.castling_rights.contains('q') {
                     // Queenside
                     if state.board[3].is_none()
                         && state.board[2].is_none()
                         && state.board[1].is_none()
-                    {
-                        if !is_square_attacked(state, 4, Color::White)
+                        && !is_square_attacked(state, 4, Color::White)
                             && !is_square_attacked(state, 3, Color::White)
                             && !is_square_attacked(state, 2, Color::White)
                         {
                             attacks.push(2);
                         }
-                    }
                 }
             }
         }
@@ -138,7 +132,7 @@ pub fn get_pseudo_legal_attacks(state: &GameState, sq_idx: usize, piece: Piece) 
             for df in [-1_i8, 1_i8] {
                 let r = rank + dr;
                 let f = file + df;
-                if r >= 0 && r <= 7 && f >= 0 && f <= 7 {
+                if (0..=7).contains(&r) && (0..=7).contains(&f) {
                     attacks.push((r * 8 + f) as usize);
                 }
             }
@@ -173,7 +167,7 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
 
         // Single Pure Linear Push
         let forward_r = rank + dir;
-        if forward_r >= 0 && forward_r <= 7 {
+        if (0..=7).contains(&forward_r) {
             let forward_idx = (forward_r * 8 + file) as usize;
             if state.board[forward_idx].is_none() {
                 moves.push(forward_idx);
@@ -194,7 +188,7 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
         for df in [-1_i8, 1_i8] {
             let cap_r = rank + dir;
             let cap_f = file + df;
-            if cap_r >= 0 && cap_r <= 7 && cap_f >= 0 && cap_f <= 7 {
+            if (0..=7).contains(&cap_r) && (0..=7).contains(&cap_f) {
                 let cap_idx = (cap_r * 8 + cap_f) as usize;
 
                 // Pure capture
@@ -220,53 +214,47 @@ pub fn get_legal_moves(state: &GameState, sq_idx: usize, piece: Piece) -> Vec<us
             // e1
             if state.castling_rights.contains('K') {
                 // Kingside
-                if state.board[61].is_none() && state.board[62].is_none() {
-                    if !is_square_attacked(state, 60, Color::Black)
+                if state.board[61].is_none() && state.board[62].is_none()
+                    && !is_square_attacked(state, 60, Color::Black)
                         && !is_square_attacked(state, 61, Color::Black)
                         && !is_square_attacked(state, 62, Color::Black)
                     {
                         moves.push(62); // O-O
                     }
-                }
             }
             if state.castling_rights.contains('Q') {
                 // Queenside
                 if state.board[59].is_none()
                     && state.board[58].is_none()
                     && state.board[57].is_none()
-                {
-                    if !is_square_attacked(state, 60, Color::Black)
+                    && !is_square_attacked(state, 60, Color::Black)
                         && !is_square_attacked(state, 59, Color::Black)
                         && !is_square_attacked(state, 58, Color::Black)
                     {
                         moves.push(58); // O-O-O
                     }
-                }
             }
         } else if piece.color == Color::Black && sq_idx == 4 {
             // e8
             if state.castling_rights.contains('k') {
                 // Kingside
-                if state.board[5].is_none() && state.board[6].is_none() {
-                    if !is_square_attacked(state, 4, Color::White)
+                if state.board[5].is_none() && state.board[6].is_none()
+                    && !is_square_attacked(state, 4, Color::White)
                         && !is_square_attacked(state, 5, Color::White)
                         && !is_square_attacked(state, 6, Color::White)
                     {
                         moves.push(6); // O-O
                     }
-                }
             }
             if state.castling_rights.contains('q') {
                 // Queenside
                 if state.board[3].is_none() && state.board[2].is_none() && state.board[1].is_none()
-                {
-                    if !is_square_attacked(state, 4, Color::White)
+                    && !is_square_attacked(state, 4, Color::White)
                         && !is_square_attacked(state, 3, Color::White)
                         && !is_square_attacked(state, 2, Color::White)
                     {
                         moves.push(2); // O-O-O
                     }
-                }
             }
         }
     }

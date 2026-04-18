@@ -113,7 +113,15 @@ impl GameState {
     pub fn new() -> Self {
         Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
     }
+}
 
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GameState {
     /// Parses a FEN string into a GameState
     pub fn from_fen(fen: &str) -> Result<Self, String> {
         let parts: Vec<&str> = fen.split_whitespace().collect();
@@ -128,7 +136,7 @@ impl GameState {
         for c in parts[0].chars() {
             if c == '/' {
                 continue;
-            } else if c.is_digit(10) {
+            } else if c.is_ascii_digit() {
                 let empty_squares = c.to_digit(10).unwrap() as usize;
                 index += empty_squares;
             } else {
@@ -320,6 +328,7 @@ impl GameState {
     }
 
     /// Dynamically isolates the Top 4 mathematically contested bounds for the AI Payload formatting!
+    #[allow(clippy::needless_range_loop)]
     pub fn extract_hottest_predictive_squares(&self, matrix: &[[(u8, u8); 8]; 8]) -> Vec<String> {
         let mut heatmap_scores = Vec::new();
 
@@ -341,7 +350,7 @@ impl GameState {
         }
 
         // Sort explicitly by maximum absolute geometric density descending
-        heatmap_scores.sort_by(|a, b| b.1.cmp(&a.1));
+        heatmap_scores.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         heatmap_scores
             .into_iter()

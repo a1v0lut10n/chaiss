@@ -124,10 +124,10 @@ impl ChaissApp {
     ) -> Self {
         let (tx, rx) = flume::unbounded();
         let (llm_tx, llm_rx) = flume::unbounded();
-        let mut app = Self::default();
-        app.db_client = Some(db_client);
-
-        // Explicitly flush the cold-boot array across the pipeline manually!
+        let mut app = Self {
+            db_client: Some(db_client),
+            ..Default::default()
+        };
         // This crucially synthetically trips the `active_game_id.is_none()` resolver logic natively on frame 1!
         let _ = tx.send(DbEvent::SessionsLoaded {
             sessions: initial_sessions.clone(),
@@ -434,7 +434,7 @@ impl eframe::App for ChaissApp {
         // Evaluate dynamic exploration mode natively before drawing layout!
         // You are in exploration if the user manually ticked Sandbox, OR if you scrolled back BEFORE the absolute live DB play vector!
         self.is_exploration_mode = self.sandbox_enabled
-            || (self.history_stack.len() > 0
+            || (!self.history_stack.is_empty()
                 && self.view_cursor < self.live_db_ply.saturating_sub(1));
 
         ui::left_panel::draw(ctx, self);
