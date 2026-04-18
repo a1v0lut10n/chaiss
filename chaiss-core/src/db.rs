@@ -17,15 +17,15 @@ pub struct DbClient {
 
 impl DbClient {
     pub async fn new(database_url: &str) -> Result<Self, Error> {
-        use std::str::FromStr;
         use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
 
-        let options = SqliteConnectOptions::from_str(database_url)?
-            .create_if_missing(true);
+        let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
 
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
-            .connect_with(options).await?;
+            .connect_with(options)
+            .await?;
 
         // Automatically run migrations on startup natively inside Rust!
         sqlx::migrate!("./migrations").run(&pool).await?;
@@ -34,12 +34,9 @@ impl DbClient {
     }
 
     pub async fn create_player(&self, name: &str) -> Result<i64, Error> {
-        let result = sqlx::query!(
-            "INSERT INTO players (name) VALUES (?)",
-            name
-        )
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query!("INSERT INTO players (name) VALUES (?)", name)
+            .execute(&self.pool)
+            .await?;
         Ok(result.last_insert_rowid())
     }
 
@@ -51,16 +48,19 @@ impl DbClient {
     }
 
     pub async fn get_player_by_name(&self, name: &str) -> Result<Option<i64>, Error> {
-        let record = sqlx::query!(
-            "SELECT id FROM players WHERE name = ?",
-            name
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let record = sqlx::query!("SELECT id FROM players WHERE name = ?", name)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(record.and_then(|r| r.id)) // flatten the implicitly wrapped SQLite Option
     }
 
-    pub async fn create_game(&self, name: &str, white_id: i64, black_id: i64, initial_fen: &str) -> Result<i64, Error> {
+    pub async fn create_game(
+        &self,
+        name: &str,
+        white_id: i64,
+        black_id: i64,
+        initial_fen: &str,
+    ) -> Result<i64, Error> {
         let status = "ongoing";
         let result = sqlx::query!(
             "INSERT INTO games (name, white_player_id, black_player_id, current_fen, status) VALUES (?, ?, ?, ?, ?)",
@@ -71,7 +71,12 @@ impl DbClient {
         Ok(result.last_insert_rowid())
     }
 
-    pub async fn update_game_state(&self, game_id: i64, current_fen: &str, status: &str) -> Result<(), Error> {
+    pub async fn update_game_state(
+        &self,
+        game_id: i64,
+        current_fen: &str,
+        status: &str,
+    ) -> Result<(), Error> {
         sqlx::query!(
             "UPDATE games SET current_fen = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             current_fen, status, game_id
@@ -83,20 +88,35 @@ impl DbClient {
 
     pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
-        
+
         // Cascading Relational teardown structure cleanly wiping dependencies beforehand!
-        sqlx::query!("DELETE FROM chat_messages WHERE game_id = ?", game_id).execute(&mut *tx).await?;
-        sqlx::query!("DELETE FROM moves WHERE game_id = ?", game_id).execute(&mut *tx).await?;
-        sqlx::query!("DELETE FROM games WHERE id = ?", game_id).execute(&mut *tx).await?;
-        
+        sqlx::query!("DELETE FROM chat_messages WHERE game_id = ?", game_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query!("DELETE FROM moves WHERE game_id = ?", game_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query!("DELETE FROM games WHERE id = ?", game_id)
+            .execute(&mut *tx)
+            .await?;
+
         tx.commit().await?;
         Ok(())
     }
 
-    pub async fn log_move(&self, game_id: i64, move_number: i64, fen_snapshot: &str, notation: &str) -> Result<(), Error> {
+    pub async fn log_move(
+        &self,
+        game_id: i64,
+        move_number: i64,
+        fen_snapshot: &str,
+        notation: &str,
+    ) -> Result<(), Error> {
         sqlx::query!(
             "INSERT INTO moves (game_id, move_number, fen_snapshot, notation) VALUES (?, ?, ?, ?)",
-            game_id, move_number, fen_snapshot, notation
+            game_id,
+            move_number,
+            fen_snapshot,
+            notation
         )
         .execute(&self.pool)
         .await?;
@@ -119,7 +139,7 @@ impl DbClient {
                 .execute(&self.pool)
                 .await?;
 
-            // Look up what the physical state was directly prior natively by scanning the previous stack vector 
+            // Look up what the physical state was directly prior natively by scanning the previous stack vector
             let prev_move = sqlx::query!(
                 "SELECT fen_snapshot FROM moves WHERE game_id = ? ORDER BY move_number DESC LIMIT 1",
                 game_id
@@ -150,9 +170,9 @@ impl DbClient {
     pub async fn get_active_games(&self) -> Result<Vec<GameRecord>, sqlx::Error> {
         let records = sqlx::query!(
             r#"
-            SELECT 
-                g.id, g.name, g.status, 
-                pw.name as white_name, 
+            SELECT
+                g.id, g.name, g.status,
+                pw.name as white_name,
                 pb.name as black_name
             FROM games g
             JOIN players pw ON g.white_player_id = pw.id
@@ -162,18 +182,24 @@ impl DbClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        
-        Ok(records.into_iter().map(|rec| GameRecord {
-            id: rec.id,
-            name: rec.name,
-            status: rec.status,
-            white_player: rec.white_name,
-            black_player: rec.black_name,
-        }).collect())
+
+        Ok(records
+            .into_iter()
+            .map(|rec| GameRecord {
+                id: rec.id,
+                name: rec.name,
+                status: rec.status,
+                white_player: rec.white_name,
+                black_player: rec.black_name,
+            })
+            .collect())
     }
 
     /// Recursively fetches the exact historical move vectors for resuming Egui Sandbox arrays natively!
-    pub async fn load_game_history(&self, game_id: i64) -> Result<(String, Vec<String>, Vec<String>), sqlx::Error> {
+    pub async fn load_game_history(
+        &self,
+        game_id: i64,
+    ) -> Result<(String, Vec<String>, Vec<String>), sqlx::Error> {
         // Technically, `games` does not retain `initial_fen` independently currently. We inject standard FIDE root explicitly!
         let root_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
 
@@ -186,19 +212,26 @@ impl DbClient {
 
         let mut fen_history = Vec::new();
         let mut algebraic_history = Vec::new();
-        
+
         for r in moves {
             fen_history.push(r.fen_snapshot);
             algebraic_history.push(r.notation);
         }
-        
+
         Ok((root_fen, fen_history, algebraic_history))
     }
 
-    pub async fn log_chat_message(&self, game_id: i64, role: &str, content: &str) -> Result<i64, Error> {
+    pub async fn log_chat_message(
+        &self,
+        game_id: i64,
+        role: &str,
+        content: &str,
+    ) -> Result<i64, Error> {
         let result = sqlx::query!(
             "INSERT INTO chat_messages (game_id, role, content) VALUES (?, ?, ?)",
-            game_id, role, content
+            game_id,
+            role,
+            content
         )
         .execute(&self.pool)
         .await?;
@@ -212,12 +245,12 @@ impl DbClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut chat_history = Vec::new();
         for r in messages {
             chat_history.push((r.role, r.content));
         }
-        
+
         Ok(chat_history)
     }
 }

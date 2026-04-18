@@ -7,12 +7,12 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
         .min_width(280.0)
         .max_width(450.0)
         .show(ctx, |ui| {
-            
+
             // Explicitly increase font sizes inside the chat panel for High-Res screens natively!
             if let Some(body_style) = ui.style_mut().text_styles.get_mut(&egui::TextStyle::Body) {
                 body_style.size = 16.0; // Base is typically 14
             }
-            
+
             ui.heading("LLM Chat & Analysis");
             ui.separator();
 
@@ -35,10 +35,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 .hint_text("Enter algebraic move or detailed prompt (Ctrl+Enter to send)...")
                                 .desired_rows(3)
                         );
-                        
+
                         let send_clicked = ui.add_sized([btn_width, 60.0], egui::Button::new("Send")).clicked();
                         let enter_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.command);
-                        
+
                         (send_clicked, enter_pressed, response)
                     }).inner;
 
@@ -47,7 +47,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         if !text.is_empty() {
                             let is_likely_pgn = text.starts_with('[') || text.contains("1.") || text.contains("1-0") || text.contains("0-1") || text.contains("1/2-1/2");
                             let mut moves_applied = 0;
-                            
+
                             // 1. Bulk PGN Injection Route
                             if is_likely_pgn {
                                 let pgn_parsed = chaiss_core::engine::notation::parse_pgn_moves(&text);
@@ -58,14 +58,14 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                             app.history_stack.push(app.game_state.to_fen());
                                             app.live_db_ply = 1;
                                         }
-                                        
+
                                         app.game_state.apply_move(from, to, promo);
                                         let fen_snapshot = app.game_state.to_fen();
-                                        
+
                                         app.history_stack.push(fen_snapshot.clone());
                                         app.live_db_ply += 1;
                                         app.view_cursor = app.history_stack.len() - 1;
-                                        
+
                                         if app.algebraic_history.is_empty() {
                                             app.algebraic_history.push("START".to_string());
                                         }
@@ -82,10 +82,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                         moves_applied += 1;
                                     } else {
                                         println!("Halting PGN Sequence mathematically at invalid geometry frame natively: {}", mv);
-                                        break; 
+                                        break;
                                     }
                                 }
-                                
+
                                 if moves_applied > 0 {
                                     if !app.silence_llm_analysis {
                                         if let Some(tx) = &app.llm_tx {
@@ -104,7 +104,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     app.prompt_buffer.clear();
                                 }
                             }
-                            
+
                             // 1b. Intercept Manual Resignation String Algebraically Natively
                             if moves_applied == 0 {
                                 let lower_text = text.to_lowercase();
@@ -118,17 +118,17 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                 if let Some((san_mapped, winner)) = manual_resign {
                                     println!("Manual Game Termination Captured: {:?} Wins", winner);
                                     app.game_state.manual_terminal_status = Some(chaiss_core::engine::GameEndStatus::Resignation(winner));
-                                    
+
                                     if app.history_stack.is_empty() {
                                         app.history_stack.push(app.game_state.to_fen());
                                         app.live_db_ply = 1;
                                     }
-                                    
+
                                     let fen_snapshot = app.game_state.to_fen();
                                     app.history_stack.push(fen_snapshot.clone());
                                     app.live_db_ply += 1;
                                     app.view_cursor = app.history_stack.len() - 1;
-                                    
+
                                     if app.algebraic_history.is_empty() {
                                         app.algebraic_history.push("START".to_string());
                                     }
@@ -145,29 +145,29 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     moves_applied += 1; // Structurally blocks fallbacks safely
                                 }
                             }
-                            
+
                             // 2. Single Explicit Algebraic Node OR Raw Text Fallback
                             if moves_applied == 0 {
                                 let is_single_token = text.split_whitespace().count() == 1;
-                                
+
                                 if is_single_token && chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text).is_ok() {
                                     let (from, to, promo) = chaiss_core::engine::notation::parse_algebraic_move(&app.game_state, &text).unwrap();
                                 println!("Algebraic Move Captured Structurally! from: {} to: {}", from, to);
-                                
+
                                 let san_mapped = text.clone();
-                                
+
                                 if app.history_stack.is_empty() {
                                     app.history_stack.push(app.game_state.to_fen());
                                     app.live_db_ply = 1;
                                 }
-                                
+
                                 app.game_state.apply_move(from, to, promo);
                                 let fen_snapshot = app.game_state.to_fen();
-                                
+
                                 app.history_stack.push(fen_snapshot.clone());
                                 app.live_db_ply += 1;
                                 app.view_cursor = app.history_stack.len() - 1;
-                                
+
                                 if app.algebraic_history.is_empty() {
                                     app.algebraic_history.push("START".to_string());
                                 }
@@ -181,7 +181,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                         let _ = client.log_move(game_id, move_ply, &fen_clone, &san_clone).await;
                                     });
                                 }
-                                
+
                                 if !app.silence_llm_analysis {
                                     if let Some(tx) = &app.llm_tx {
                                         let payload = chaiss_core::llm::LlmPromptPayload {
@@ -196,9 +196,9 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                         let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                     }
                                 }
-                                
+
                                 app.prompt_buffer.clear();
-                                
+
                             // 3. Raw LLM Context Prompt Stream
                             } else {
                                 if let Some(tx) = &app.llm_tx {
@@ -239,17 +239,17 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                                     ui.label(egui::RichText::new("⚠️ System: ").color(egui::Color32::from_rgb(255, 140, 0)).strong());
                                 }
                             });
-                            
+
                             // Natively route explicitly to the new geometric Markdown Caching Engine
                             ui.push_id(format!("chat_{}_{}", app.active_game_id.unwrap_or(0), idx), |ui| {
                                 egui_commonmark::CommonMarkViewer::new()
                                     .show(ui, &mut app.markdown_cache, msg);
                             });
-                                
+
                             ui.add_space(8.0);
                         }
                     }
-                    
+
                     if app.is_llm_thinking && app.live_llm_response.is_empty() {
                         ui.horizontal_wrapped(|ui| {
                             ui.spinner();
@@ -262,7 +262,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("🤖 Agent (Streaming): ").color(egui::Color32::LIGHT_GREEN).strong().italics());
                         });
-                        
+
                         ui.push_id(format!("streaming_{}", app.active_game_id.unwrap_or(0)), |ui| {
                             egui_commonmark::CommonMarkViewer::new()
                                 .show(ui, &mut app.markdown_cache, &app.live_llm_response);
