@@ -1,12 +1,14 @@
 [package]
 name = "chaiss-core"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Hans Van Wesenbeeck <hvw@aivolution.ch>"]
 description = "Intelligent backend AI Core mapping chess geometry organically."
 license = "Apache-2.0"
 repository = "https://github.com/a1v0lut10n/chaiss"
+homepage = "https://github.com/a1v0lut10n/chaiss"
 keywords = ["chess", "llm", "ai"]
+categories = ["games", "algorithms", "science"]
 
 [dependencies]
 flume = "0.12.0"
