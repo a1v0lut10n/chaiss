@@ -1,6 +1,6 @@
 [package]
 name = "chaiss"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Hans Van Wesenbeeck <hvw@aivolution.ch>"]
 description = "An intelligent, AI-assisted chessboard built from the ground up natively in Egui."
