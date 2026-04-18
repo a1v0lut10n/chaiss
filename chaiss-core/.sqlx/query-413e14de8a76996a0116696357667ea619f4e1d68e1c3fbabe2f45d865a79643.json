@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT \n                g.id, g.name, g.status, \n                pw.name as white_name, \n                pb.name as black_name\n            FROM games g\n            JOIN players pw ON g.white_player_id = pw.id\n            JOIN players pb ON g.black_player_id = pb.id\n            ORDER BY g.updated_at DESC\n            ",
+  "query": "\n            SELECT\n                g.id, g.name, g.status,\n                pw.name as white_name,\n                pb.name as black_name\n            FROM games g\n            JOIN players pw ON g.white_player_id = pw.id\n            JOIN players pb ON g.black_player_id = pb.id\n            ORDER BY g.updated_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "1dfc71c35103a630f89ce12c86322753fd18b3a46198d5dd159c2cfc8a02d8ed"
+  "hash": "413e14de8a76996a0116696357667ea619f4e1d68e1c3fbabe2f45d865a79643"
 }

@@ -22,21 +22,28 @@ fn load_icon() -> Option<Arc<egui::IconData>> {
 async fn main() -> eframe::Result<()> {
     // Explicitly load .env contents mathematically into the OS environment vector array!
     dotenvy::dotenv().ok();
-    
+
     println!("Starting Chaiss Desktop...");
     chaiss_core::init();
-    
+
     // Establish the native global connection pool inside the Tokio runtime!
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://chaiss.db".to_string());
-    let db_client = Arc::new(chaiss_core::db::DbClient::new(&db_url).await.expect("Failed to securely bind SQLite Database locally!"));
+    let db_client = Arc::new(
+        chaiss_core::db::DbClient::new(&db_url)
+            .await
+            .expect("Failed to securely bind SQLite Database locally!"),
+    );
 
     // Fetch previous mathematical SQL sessions before booting graphical frames synchronously!
-    let initial_sessions = db_client.get_active_games().await.unwrap_or_else(|_| Vec::new());
+    let initial_sessions = db_client
+        .get_active_games()
+        .await
+        .unwrap_or_else(|_| Vec::new());
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1200.0, 800.0])
         .with_min_inner_size([800.0, 600.0]);
-        
+
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(icon);
     }

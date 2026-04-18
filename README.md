@@ -25,10 +25,10 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
 
 ## Project Structure
 
-- `core/` - Rust source code for backend logic, database integrations (`sqlx`), and models.
-- `desktop/` - Rust source code for the `egui`-based frontend application. Includes UI components and an `assets/` directory.
+- `chaiss-core/` - Rust source code for backend logic, database integrations (`sqlx`), and models.
+- `chaiss/` - Rust source code for the `egui`-based frontend application. Includes UI components and an `assets/` directory.
 - `docs/` - Requirements, design documents, and developer journals.
-- `tools/` - Helper scripts, including the SQLite database initialization script.
+- `tools/` - Sandbox and helper scripts for repository maintenance.
 
 ## Getting Started
 
