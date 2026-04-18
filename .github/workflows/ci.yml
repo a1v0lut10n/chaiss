@@ -8,36 +8,46 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Critically required for sqlx to compile without a live database
   SQLX_OFFLINE: true
 
 jobs:
-  validate:
-    name: Code Quality & Tests
+  fmt:
+    name: Format
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust Stable Toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
+      - name: Verify Formatting
+        run: cargo fmt --all -- --check
 
-      - name: Install Linux Crate Dependencies (Egui & Winit)
+  clippy:
+    name: Clippy Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libasound2-dev
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Verify Code Formatting
-        run: cargo fmt --all -- --check
-
-      - name: Verify Strict Clippy Lints
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify Strict Lints
         run: cargo clippy --workspace -- -D warnings
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libasound2-dev
+      - uses: Swatinem/rust-cache@v2
       - name: Execute Workspace Unit Tests
         run: cargo test --workspace
