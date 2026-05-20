@@ -1,6 +1,3 @@
 [workspace]
-members = [
-    "chaiss-core",
-    "chaiss"
-]
+members = ["chaiss-core", "chaiss"]
 resolver = "2"
