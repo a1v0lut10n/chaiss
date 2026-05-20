@@ -58,12 +58,14 @@ async fn main() -> eframe::Result<()> {
         native_options,
         Box::new(move |cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            
+
             // Mathematically bind the native Noto Emoji rendering architecture into the context array
             let mut fonts = egui::FontDefinitions::default();
             fonts.font_data.insert(
                 "emoji".to_owned(),
-                std::sync::Arc::new(egui::FontData::from_static(include_bytes!("../assets/NotoEmoji-Regular.ttf"))),
+                std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                    "../assets/NotoEmoji-Regular.ttf"
+                ))),
             );
             if let Some(prop) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
                 prop.push("emoji".to_owned());
