@@ -34,6 +34,15 @@
      inkscape:current-layer="svg290" />
   <defs
      id="defs72">
+    <style>
+      @media (prefers-color-scheme: dark) {
+        text { fill: #fdfae8; }
+        path[fill="#010101"] { fill: #fdfae8; }
+        path[fill="#141414"] { fill: #e9e3d6; }
+        path[fill="#292a2a"] { fill: #bab4a3; }
+        path[fill="#504f4f"] { fill: #9b9b95; }
+      }
+    </style>
     <linearGradient
        id="Gradient1"
        gradientUnits="userSpaceOnUse"
