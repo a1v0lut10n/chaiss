@@ -26,3 +26,8 @@ target
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride

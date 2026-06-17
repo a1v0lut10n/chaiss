@@ -2,7 +2,7 @@ use flume::Sender;
 use futures::StreamExt;
 use llm::{
     builder::{LLMBackend, LLMBuilder},
-    chat::ChatMessage,
+    chat::{ChatMessage, ReasoningEffort},
 };
 
 #[derive(Clone, Debug)]
@@ -33,11 +33,7 @@ pub async fn stream_llm_response(
             "claude-3-opus-20240229",
         ),
         "ollama" => (LLMBackend::Ollama, "", "llama3"), // Added fallback for local testing maybe
-        _ => (
-            LLMBackend::Google,
-            "GOOGLE_API_KEY",
-            "gemini-3.1-pro-preview",
-        ),
+        _ => (LLMBackend::Google, "GOOGLE_API_KEY", "gemini-3.5-flash"),
     };
 
     let api_key = std::env::var(api_key_env).unwrap_or_else(|_| "TESTKEY".to_string());
@@ -48,12 +44,22 @@ pub async fn stream_llm_response(
         return Err(format!("No {} exported natively in your terminal! Please ensure your `.env` file is loaded correctly and you have restarted the application.", api_key_env).into());
     }
 
-    let llm = LLMBuilder::new()
-        .backend(backend_enum)
+    let mut builder = LLMBuilder::new()
         .api_key(api_key.clone())
         .model(default_model) // Frontier architecture structurally mapping rigorous mathematical constraints
         .max_tokens(8000)
-        .temperature(0.7)
+        .temperature(0.7);
+
+    if backend_enum == LLMBackend::Google {
+        builder = builder
+            .backend(LLMBackend::OpenAI)
+            .base_url("https://generativelanguage.googleapis.com/v1beta/openai/")
+            .reasoning_effort(ReasoningEffort::High);
+    } else {
+        builder = builder.backend(backend_enum);
+    }
+
+    let llm = builder
         .build()
         .map_err(|e| format!("Failed LLM Build: {:?}", e))?;
 
