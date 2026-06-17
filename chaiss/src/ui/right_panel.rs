@@ -221,11 +221,14 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                     }
                 });
 
-            // 2. Consume universally what physical rendering space remains dynamically natively!
+            let panel_width = ui.available_width();
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .stick_to_bottom(true)
                 .show(ui, |ui| {
+                    ui.set_max_width(panel_width - 16.0); // Account for scrollbar
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+
                     if app.chat_history.is_empty() {
                         ui.label(egui::RichText::new("🤖 AI: Initialization complete, awaiting architecture definition...").italics());
                     } else {
@@ -242,8 +245,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
                             // Natively route explicitly to the new geometric Markdown Caching Engine
                             ui.push_id(format!("chat_{}_{}", app.active_game_id.unwrap_or(0), idx), |ui| {
-                                egui_commonmark::CommonMarkViewer::new()
-                                    .show(ui, &mut app.markdown_cache, msg);
+                                ui.allocate_ui(egui::vec2(panel_width - 24.0, 0.0), |ui| {
+                                    egui_commonmark::CommonMarkViewer::new()
+                                        .show(ui, &mut app.markdown_cache, msg);
+                                });
                             });
 
                             ui.add_space(8.0);
@@ -264,8 +269,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         });
 
                         ui.push_id(format!("streaming_{}", app.active_game_id.unwrap_or(0)), |ui| {
-                            egui_commonmark::CommonMarkViewer::new()
-                                .show(ui, &mut app.markdown_cache, &app.live_llm_response);
+                            ui.allocate_ui(egui::vec2(panel_width - 24.0, 0.0), |ui| {
+                                egui_commonmark::CommonMarkViewer::new()
+                                    .show(ui, &mut app.markdown_cache, &app.live_llm_response);
+                            });
                         });
                     }
                 });
