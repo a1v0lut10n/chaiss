@@ -269,9 +269,10 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
                         });
 
                         ui.push_id(format!("streaming_{}", app.active_game_id.unwrap_or(0)), |ui| {
+                            let sanitized_stream = crate::app::ChaissApp::sanitize_markdown(&app.live_llm_response);
                             ui.allocate_ui(egui::vec2(panel_width - 24.0, 0.0), |ui| {
                                 egui_commonmark::CommonMarkViewer::new()
-                                    .show(ui, &mut app.markdown_cache, &app.live_llm_response);
+                                    .show(ui, &mut app.markdown_cache, &sanitized_stream);
                             });
                         });
                     }

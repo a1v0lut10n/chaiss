@@ -79,6 +79,10 @@ pub struct ChaissApp {
     // Matrix Visualization Architecture
     pub focus_matrix: FocusMatrix,
     pub ai_predictive_arrows: Vec<(usize, usize)>,
+
+    // Retry and Auto-Healing Mechanics
+    pub retry_count: usize,
+    pub active_payload: Option<chaiss_core::llm::LlmPromptPayload>,
 }
 
 impl Default for ChaissApp {
@@ -112,11 +116,25 @@ impl Default for ChaissApp {
             flip_board: false,
             focus_matrix: FocusMatrix::FirstOrder,
             ai_predictive_arrows: Vec::new(),
+            retry_count: 0,
+            active_payload: None,
         }
     }
 }
 
 impl ChaissApp {
+    pub fn sanitize_markdown(input: &str) -> String {
+        let mut sanitized = input.trim_start().to_string();
+        let backtick_count = sanitized.matches("```").count();
+        if !backtick_count.is_multiple_of(2) {
+            if !sanitized.ends_with('\n') {
+                sanitized.push('\n');
+            }
+            sanitized.push_str("```\n");
+        }
+        sanitized
+    }
+
     pub fn new(
         _cc: &eframe::CreationContext<'_>,
         db_client: Arc<DbClient>,
@@ -323,20 +341,24 @@ impl eframe::App for ChaissApp {
             while let Ok(event) = rx.try_recv() {
                 match event {
                     LlmEvent::InferenceRequested(payload) => {
-                        self.chat_history
-                            .push(("User".to_string(), payload.prompt.clone()));
+                        if self.retry_count == 0 {
+                            self.chat_history
+                                .push(("User".to_string(), payload.prompt.clone()));
+
+                            // Serialize user payload asynchronously into active match cleanly
+                            if let (Some(db), Some(game_id)) =
+                                (self.db_client.clone(), self.active_game_id)
+                            {
+                                let p_clone = payload.prompt.clone();
+                                tokio::spawn(async move {
+                                    let _ = db.log_chat_message(game_id, "User", &p_clone).await;
+                                });
+                            }
+                        }
+
+                        self.active_payload = Some(payload.clone());
                         self.live_llm_response = String::new();
                         self.is_llm_thinking = true;
-
-                        // Serialize user payload asynchronously into active match cleanly
-                        if let (Some(db), Some(game_id)) =
-                            (self.db_client.clone(), self.active_game_id)
-                        {
-                            let p_clone = payload.prompt.clone();
-                            tokio::spawn(async move {
-                                let _ = db.log_chat_message(game_id, "User", &p_clone).await;
-                            });
-                        }
 
                         // Break memory locks extracting standard pointers
                         let tx_clone = self.llm_tx.clone().unwrap();
@@ -384,17 +406,37 @@ impl eframe::App for ChaissApp {
                         self.live_llm_response.clear();
                     }
                     LlmEvent::InferenceFinished => {
+                        let has_matrix = self
+                            .live_llm_response
+                            .find("### PREDICTIVE MATRIX:")
+                            .is_some();
+
+                        if !has_matrix && self.retry_count < 3 {
+                            println!("Incomplete response detected natively, auto-retrying... (Attempt {})", self.retry_count + 1);
+                            self.retry_count += 1;
+                            if let (Some(payload), Some(tx)) =
+                                (self.active_payload.clone(), self.llm_tx.clone())
+                            {
+                                let _ = tx.send(LlmEvent::InferenceRequested(payload));
+                            }
+                            continue; // Skip the rest of the finishing logic
+                        }
+
+                        self.retry_count = 0;
+                        self.active_payload = None;
+
+                        let sanitized_response = Self::sanitize_markdown(&self.live_llm_response);
+
                         self.chat_history
-                            .push(("Agent".to_string(), self.live_llm_response.clone()));
+                            .push(("Agent".to_string(), sanitized_response.clone()));
                         self.is_llm_thinking = false;
 
                         // Parse visual geometrical continuations structurally from the inference!
                         self.ai_predictive_arrows.clear();
-                        if let Some(matrix_idx) =
-                            self.live_llm_response.find("### PREDICTIVE MATRIX:")
+                        if let Some(matrix_idx) = sanitized_response.find("### PREDICTIVE MATRIX:")
                         {
-                            let substring = &self.live_llm_response
-                                [matrix_idx + "### PREDICTIVE MATRIX:".len()..];
+                            let substring =
+                                &sanitized_response[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
                             let sequence: Vec<&str> =
                                 substring.split(',').map(|s| s.trim()).collect();
 
@@ -419,7 +461,7 @@ impl eframe::App for ChaissApp {
                         if let (Some(db), Some(game_id)) =
                             (self.db_client.clone(), self.active_game_id)
                         {
-                            let r_clone = self.live_llm_response.clone();
+                            let r_clone = sanitized_response.clone();
                             tokio::spawn(async move {
                                 let _ = db.log_chat_message(game_id, "Agent", &r_clone).await;
                             });
