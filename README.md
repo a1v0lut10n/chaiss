@@ -52,13 +52,49 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
 
 For detailed instructions on how to use the dual-control mechanisms, launch a match, parse raw PGN text directly into the structural Egui modules, and securely interrogate the AI backend, please see the explicit **[Chaiss User Guide](docs/user_guide.md)**.
 
+## UI Inspection via MCP
+
+Chaiss is built on `egui` 0.35, which ships an **inspection protocol**
+(`egui_inspection`) that exposes a running app's live UI (AccessKit) tree over a
+local port. Chaiss wires this to the [`egui-mcp`](https://github.com/rerun-io/kittest_inspector)
+server so an AI agent — e.g. Claude Code — can **read and drive the running UI**
+through the Model Context Protocol.
+
+**One-time setup** (installs the `egui-mcp` server binary; macOS and Ubuntu/Debian
+today, Windows planned):
+
+```bash
+tools/scripts/setup-egui-mcp.sh          # add --global to also register at Claude user scope
+```
+
+The repository's committed `.mcp.json` registers the `egui` server for Claude
+Code automatically once the binary is on your `PATH` (via `~/.cargo/bin`).
+
+**Run Chaiss with inspection enabled** (exposes the UI on `127.0.0.1:5719`):
+
+```bash
+tools/scripts/run-chaiss-inspect.sh
+# equivalent to:
+EGUI_INSPECTION=1 cargo run -p chaiss --features inspection
+```
+
+Inspection is a build-time opt-in (the `inspection` feature on `chaiss`, which
+enables `eframe/inspection`); normal and release builds are unaffected. With the
+app running, the `egui` MCP tools in Claude can connect and interact with it.
+
+> **macOS note:** keep the Chaiss window **foregrounded and visible** while using
+> the MCP tools. An occluded or minimized window stops painting, so the AccessKit
+> tree collapses to a minimal snapshot and `screenshot` times out ("the app is
+> not painting; bring its window to the foreground"). Bring the window to the
+> front and the full widget tree and screenshots work.
+
 ## Development and Contributions
 
 For a detailed breakdown of the features, architectural choices, and upcoming roadmap, please refer to the `docs/requirements/chaiss_requirements.md` file.
 
 ## Acknowledgments
 
-- A huge shout-out and thank you to **Emil Ernerfeldt** (@emilk) and contributors for creating the incredible [`egui`](https://github.com/emilk/egui) framework. Its direct rendering approach enabled rapid prototyping that made this feasible as a weekend project, bringing the joy back to UI development!
-- Special thanks to **graniet** (@graniet) for the [`llm`](https://github.com/graniet/llm) crate, providing the unified API layer that brilliantly connects Chaiss to frontier models line Gemini, OpenAI, and Anthropic.
-- Also thanking `flume` ([repository](https://github.com/zesterer/flume)): `flume` is a strong fit for an egui-based application because it matches the immediate-mode update model well: worker threads can send messages through a channel, request a repaint, and the UI can consume whatever is ready on the next frame using non-blocking receive methods. Since `flume` provides cloneable MPMC channels as well as bounded and unbounded queues, it works well for responsive UI architectures where background tasks must communicate with the render loop without introducing unnecessary shared-state complexity.
-- Immense thanks to the **Google Deepmind Team** and the **Gemini 3.1 Pro** model! Their mathematically advanced **Antigravity IDE** was the foundational tool that allowed me to engineer this AI-enabled chess application in a (long) weekend.
+- Thanks to **Emil Ernerfeldt** (@emilk) and contributors for the [`egui`](https://github.com/emilk/egui) framework. Its immediate-mode rendering made rapid prototyping straightforward for a weekend project.
+- Thanks to **graniet** (@graniet) for the [`llm`](https://github.com/graniet/llm) crate, whose unified API layer connects Chaiss to frontier models like Gemini, OpenAI, and Anthropic.
+- Thanks to [`flume`](https://github.com/zesterer/flume) for its cloneable MPMC channels, which fit the immediate-mode model well: worker threads send messages and request a repaint, and the UI consumes whatever is ready on the next frame via non-blocking receives.
+- Thanks to the **Google DeepMind** team and the **Gemini 3.1 Pro** model, used via the **Antigravity IDE** during development.
