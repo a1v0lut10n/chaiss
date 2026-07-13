@@ -161,7 +161,7 @@ impl ChaissApp {
 }
 
 impl eframe::App for ChaissApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // 1. Explicitly receive background database operations mathematically across the barrier!
         if let Some(rx) = &self.db_rx {
             while let Ok(event) = rx.try_recv() {
@@ -479,12 +479,8 @@ impl eframe::App for ChaissApp {
             || (!self.history_stack.is_empty()
                 && self.view_cursor < self.live_db_ply.saturating_sub(1));
 
-        ui::left_panel::draw(ctx, self);
-        ui::right_panel::draw(ctx, self);
-        ui::board::draw(ctx, self);
-    }
-
-    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // Stub to satisfy eframe 0.34 App trait signature
+        ui::left_panel::draw(ui, self);
+        ui::right_panel::draw(ui, self);
+        ui::board::draw(ui, self);
     }
 }

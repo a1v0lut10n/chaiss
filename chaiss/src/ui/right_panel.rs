@@ -1,12 +1,11 @@
 use eframe::egui;
 
-pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
-    #[allow(deprecated)]
-    egui::SidePanel::right("chat_panel")
+pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
+    egui::Panel::right("chat_panel")
         .resizable(true)
-        .min_width(280.0)
-        .max_width(450.0)
-        .show(ctx, |ui| {
+        .default_size(320.0)
+        .size_range(280.0..=450.0)
+        .show(ui, |ui| {
 
             // Explicitly increase font sizes inside the chat panel for High-Res screens natively!
             if let Some(body_style) = ui.style_mut().text_styles.get_mut(&egui::TextStyle::Body) {
@@ -17,9 +16,9 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
             ui.separator();
 
             // 1. Reserve exact geometric space at the bottom dynamically using TopBottomPanel!
-            egui::TopBottomPanel::bottom("chat_input_panel")
-                .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(0, 5)))
-                .show_inside(ui, |ui| {
+            egui::Panel::bottom("chat_input_panel")
+                .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(0, 5)))
+                .show(ui, |ui| {
                     ui.checkbox(&mut app.silence_llm_analysis, "Silence AI Auto-Analysis for Rapid Testing");
                     ui.add_space(5.0);
 

@@ -1,11 +1,14 @@
 use eframe::egui;
 
-pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
-    #[allow(deprecated)]
-    egui::SidePanel::left("roster_panel")
+pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
+    // egui 0.35 shows floating windows against the Context; grab an owned handle
+    // (cheap Arc clone) before the panel borrows `ui` mutably.
+    let ctx = ui.ctx().clone();
+
+    egui::Panel::left("roster_panel")
         .resizable(true)
-        .min_width(200.0)
-        .show(ctx, |ui| {
+        .size_range(200.0..=f32::INFINITY)
+        .show(ui, |ui| {
             ui.heading("Game Roster");
             ui.add_space(10.0);
 
@@ -118,7 +121,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
         egui::Window::new("Initialize Match")
             .collapsible(false)
             .resizable(false)
-            .show(ctx, |ui| {
+            .show(&ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Game Name:");
                     ui.text_edit_singleline(&mut app.new_game_name);

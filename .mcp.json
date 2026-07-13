@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "egui": {
+      "command": "egui-mcp",
+      "args": [],
+      "env": {
+        "EGUI_MCP_LOG": "egui_mcp=info,warn"
+      }
+    }
+  }
+}

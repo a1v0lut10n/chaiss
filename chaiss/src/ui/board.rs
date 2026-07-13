@@ -23,14 +23,13 @@ fn get_image_source_for_piece(piece: &Piece) -> egui::ImageSource<'static> {
     }
 }
 
-pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
+pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
     let terminal_state = app.game_state.evaluate_terminal_state();
 
-    #[allow(deprecated)]
-    egui::CentralPanel::default().show(ctx, |ui| {
-        egui::TopBottomPanel::bottom("sandbox_nav_panel")
+    egui::CentralPanel::default().show(ui, |ui| {
+        egui::Panel::bottom("sandbox_nav_panel")
             .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(10, 10)))
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Sandbox Navigation:");
 
@@ -138,7 +137,7 @@ pub fn draw(ctx: &egui::Context, app: &mut crate::app::ChaissApp) {
 
             ui.horizontal(|ui| {
                 ui.heading("Analysis Overlay:");
-                egui::ComboBox::from_id_source("focus_matrix_selector")
+                egui::ComboBox::from_id_salt("focus_matrix_selector")
                     .selected_text(match app.focus_matrix {
                         FocusMatrix::None => "None",
                         FocusMatrix::FirstOrder => "First-Order Heat",
