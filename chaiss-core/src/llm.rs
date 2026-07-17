@@ -90,6 +90,7 @@ Structural ASCII Board Matrix:\n{}\n\n\
 Full Explicit Match Algebraic Sequence:\n{}\n\n\
 The geometry currently dictates it is {}'s turn to move. \
 Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.{}\n\n\
+FORMATTING CONSTRAINT: Respond in plain Markdown only. NEVER use LaTeX or math notation — no $ or $$ delimiters and no backslash commands such as \\text or \\quad. Write chess moves as plain standard algebraic notation text.\n\n\
 CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis, you MUST provide exactly one hypothesized continuation line up to 4 plies deep recursively, formatted distinctly exactly on a single line like this:\n\
 ### PREDICTIVE MATRIX: e4, e5, Nf3, Nc6",
         payload.system_role,

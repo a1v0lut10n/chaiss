@@ -124,7 +124,7 @@ impl Default for ChaissApp {
 
 impl ChaissApp {
     pub fn sanitize_markdown(input: &str) -> String {
-        let mut sanitized = input.trim_start().to_string();
+        let mut sanitized = strip_math_spans(input.trim_start());
         let backtick_count = sanitized.matches("```").count();
         if !backtick_count.is_multiple_of(2) {
             if !sanitized.ends_with('\n') {
@@ -482,5 +482,246 @@ impl eframe::App for ChaissApp {
         ui::left_panel::draw(ui, self);
         ui::right_panel::draw(ui, self);
         ui::board::draw(ui, self);
+    }
+}
+
+/// Gemini wraps chess lines in TeX math (`$$\text{7. d4 \quad exd4}$$`) which
+/// egui_commonmark renders verbatim; rewrite complete math spans as bold plain
+/// text. Only complete delimiter pairs are rewritten — a partially streamed
+/// span is left untouched and picked up once its closing delimiter arrives,
+/// since the sanitizer re-runs over the full buffer every frame.
+fn strip_math_spans(input: &str) -> String {
+    // Segments between ``` fences alternate outside/inside code; only touch
+    // the outside ones so dollar signs in code samples survive.
+    input
+        .split("```")
+        .enumerate()
+        .map(|(i, seg)| {
+            if i % 2 == 0 {
+                strip_math_in_text(seg)
+            } else {
+                seg.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("```")
+}
+
+fn strip_math_in_text(seg: &str) -> String {
+    let mut out = String::with_capacity(seg.len());
+    let mut rest = seg;
+    while let Some(j) = rest.find('$') {
+        // A backslash-escaped \$ is a literal dollar, not a delimiter.
+        if rest[..j].ends_with('\\') {
+            out.push_str(&rest[..j + 1]);
+            rest = &rest[j + 1..];
+            continue;
+        }
+        out.push_str(&rest[..j]);
+        rest = &rest[j..];
+
+        if let Some(body) = rest.strip_prefix("$$") {
+            match body.find("$$") {
+                Some(k) => {
+                    let detexed = detex(&body[..k]);
+                    if !detexed.is_empty() {
+                        out.push_str("**");
+                        out.push_str(&detexed);
+                        out.push_str("**");
+                    }
+                    rest = &body[k + 2..];
+                }
+                None => {
+                    // Unterminated display span: still streaming, keep verbatim.
+                    out.push_str(rest);
+                    return out;
+                }
+            }
+        } else {
+            let body = &rest[1..];
+            match inline_math_end(body) {
+                Some(k) => {
+                    out.push_str("**");
+                    out.push_str(&detex(&body[..k]));
+                    out.push_str("**");
+                    rest = &body[k + 1..];
+                }
+                None => {
+                    out.push('$');
+                    rest = body;
+                }
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Find the closing `$` of an inline span, applying Pandoc-style validity
+/// rules so ordinary prices ("$5 and $10") are not eaten: the span must stay
+/// on one line, be non-empty, not be padded with whitespace, and the closing
+/// delimiter must not be followed by a digit.
+fn inline_math_end(body: &str) -> Option<usize> {
+    let k = body.find('$')?;
+    let content = &body[..k];
+    if content.is_empty()
+        || content.contains('\n')
+        || content.starts_with(char::is_whitespace)
+        || content.ends_with(char::is_whitespace)
+        || body[k + 1..].starts_with(|c: char| c.is_ascii_digit())
+    {
+        return None;
+    }
+    Some(k)
+}
+
+/// Reduce a TeX math body to plain text: unwrap text-mode groups, map spacing
+/// and common symbol commands, drop grouping braces, and collapse whitespace.
+fn detex(tex: &str) -> String {
+    let mut out = String::with_capacity(tex.len());
+    let mut chars = tex.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                let mut cmd = String::new();
+                while let Some(&n) = chars.peek() {
+                    if n.is_ascii_alphabetic() {
+                        cmd.push(n);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                if cmd.is_empty() {
+                    // Single-character controls: \, \; \: \  are spacing, \! is
+                    // negative space, the rest (\$ \{ \} \% …) escape literals.
+                    if let Some(n) = chars.next() {
+                        match n {
+                            ',' | ';' | ':' | ' ' => out.push(' '),
+                            '!' => {}
+                            _ => out.push(n),
+                        }
+                    }
+                } else {
+                    match cmd.as_str() {
+                        "text" | "textbf" | "textit" | "textrm" | "texttt" | "mathrm"
+                        | "mathbf" | "mathit" | "operatorname" | "mbox" => {
+                            out.push_str(&detex(&take_braced_group(&mut chars)));
+                        }
+                        "quad" | "qquad" => out.push(' '),
+                        "times" => out.push('×'),
+                        "cdot" => out.push('·'),
+                        "pm" => out.push('±'),
+                        "rightarrow" | "to" => out.push('→'),
+                        "Rightarrow" | "implies" => out.push('⇒'),
+                        "leftarrow" => out.push('←'),
+                        "ldots" | "dots" | "cdots" => out.push_str("..."),
+                        "geq" | "ge" => out.push('≥'),
+                        "leq" | "le" => out.push('≤'),
+                        "neq" | "ne" => out.push('≠'),
+                        "infty" => out.push('∞'),
+                        // Unknown command: drop the backslash, keep the name.
+                        _ => out.push_str(&cmd),
+                    }
+                }
+            }
+            '{' | '}' => {}
+            '~' | '\n' => out.push(' '),
+            _ => out.push(c),
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Consume a `{...}`-delimited group (brace-nesting aware) and return its
+/// contents; returns empty if the next character is not `{`.
+fn take_braced_group(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> String {
+    let mut inner = String::new();
+    if chars.peek() != Some(&'{') {
+        return inner;
+    }
+    chars.next();
+    let mut depth = 1u32;
+    for c in chars.by_ref() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        inner.push(c);
+    }
+    inner
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rewrites_gemini_display_math() {
+        let input = r"White simply recaptures: $$\text{7. d4 \quad exd4 \quad 8. Nxd4!}$$";
+        assert_eq!(
+            ChaissApp::sanitize_markdown(input),
+            "White simply recaptures: **7. d4 exd4 8. Nxd4!**"
+        );
+    }
+
+    #[test]
+    fn rewrites_inline_math() {
+        assert_eq!(
+            ChaissApp::sanitize_markdown(r"The reply $e5$ is forced."),
+            "The reply **e5** is forced."
+        );
+    }
+
+    #[test]
+    fn rewrites_multiline_display_math() {
+        let input = "Eval:\n$$\n\\text{8. Nxd4} \\quad \\pm 1.3\n$$\nWhite is better.";
+        assert_eq!(
+            ChaissApp::sanitize_markdown(input),
+            "Eval:\n**8. Nxd4 ± 1.3**\nWhite is better."
+        );
+    }
+
+    #[test]
+    fn leaves_unterminated_stream_untouched() {
+        let input = r"Recapture: $$\text{7. d4";
+        assert_eq!(ChaissApp::sanitize_markdown(input), input);
+    }
+
+    #[test]
+    fn leaves_prices_untouched() {
+        let input = "That engine costs $5 and $10 more per month.";
+        assert_eq!(ChaissApp::sanitize_markdown(input), input);
+    }
+
+    #[test]
+    fn leaves_code_fences_untouched() {
+        let input = "Run:\n```sh\necho $$PATH\n```\ndone $x$";
+        assert_eq!(
+            ChaissApp::sanitize_markdown(input),
+            "Run:\n```sh\necho $$PATH\n```\ndone **x**"
+        );
+    }
+
+    #[test]
+    fn still_closes_unbalanced_fences() {
+        assert_eq!(
+            ChaissApp::sanitize_markdown("```rust\nlet x = 1;"),
+            "```rust\nlet x = 1;\n```\n"
+        );
+    }
+
+    #[test]
+    fn handles_nested_text_groups_and_symbols() {
+        assert_eq!(
+            ChaissApp::sanitize_markdown(r"$$\text{Nf3 \textbf{best}} \rightarrow \infty$$"),
+            "**Nf3 best → ∞**"
+        );
     }
 }
