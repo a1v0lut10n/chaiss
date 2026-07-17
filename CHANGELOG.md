@@ -1,0 +1,113 @@
+# Changelog
+
+All notable changes to this project are documented in this file. Entries are
+derived from the development journal in `docs/journal/` and the release
+history. Versions cover both workspace crates (`chaiss` and `chaiss-core`),
+which are released in lockstep.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.7] - 2026-07-17
+
+### Fixed
+
+- LLM chat responses containing LaTeX math markup (e.g.
+  `$$\text{7. d4 \quad exd4}$$`, as emitted by newer Gemini models) rendered
+  verbatim in the chat panel — dollar signs, backslashes and braces included.
+  The markdown sanitizer now rewrites complete math spans as bold plain text:
+  `\text{}`-style groups are unwrapped, spacing macros become spaces, and
+  common TeX symbols map to their Unicode equivalents. Partially streamed
+  spans, fenced code blocks, escaped dollars, and ordinary dollar amounts are
+  deliberately left untouched.
+
+### Changed
+
+- The LLM system prompt now instructs the model to respond in plain Markdown
+  only and to avoid LaTeX/math notation, writing chess moves as plain
+  algebraic notation.
+
+## [0.1.6] - 2026-07-13
+
+### Changed
+
+- Upgraded the UI stack to egui/eframe 0.35, with `egui_extras` and
+  `egui_commonmark` aligned to matching versions.
+
+### Added
+
+- Opt-in `inspection` cargo feature: launching with `EGUI_INSPECTION=1`
+  exposes the live UI tree to the egui MCP server, enabling agent-driven UI
+  inspection, automation, and screenshots during development.
+
+## [0.1.5] - 2026-06-20
+
+### Added
+
+- Auto-retry for incomplete LLM responses: an answer that arrives without its
+  concluding predictive-matrix line triggers a bounded automatic re-request.
+
+### Fixed
+
+- More robust markdown sanitization of streamed LLM output, including
+  auto-closing unbalanced code fences so partial streams render cleanly.
+
+## [0.1.4] - 2026-06-17
+
+### Fixed
+
+- Right-panel chat text no longer clips/overflows its container.
+
+### Changed
+
+- Default Google model updated from `gemini-3.1-pro-preview` to
+  `gemini-3.5-flash`.
+- SVG logo adapts its colors for dark mode; the cyan AI outline was thickened
+  to fully cover the inner text border.
+- Established `cargo fmt` and `cargo clippy` as enforced workspace
+  requirements.
+
+## [0.1.3] - 2026-05-20
+
+### Fixed
+
+- Emoji rendering: NotoEmoji is embedded as an explicit font fallback so
+  emoji (e.g. the robot token in chat) display correctly.
+
+## [0.1.2] - 2026-04-18
+
+### Changed
+
+- Crate metadata and packaging optimization for crates.io.
+
+## [0.1.1] - 2026-04-18
+
+### Changed
+
+- Packaging alignment for crates.io publication.
+
+## [0.1.0] - 2026-04-18
+
+Initial public release, split into the `chaiss` desktop application and the
+headless `chaiss-core` engine crate.
+
+### Added
+
+- Pure chess engine: raycasting-based move generation, full legality
+  validation (checks, pins), castling, promotion, en passant, and terminal
+  evaluation (checkmate and stalemate), fully decoupled from the UI.
+- Three-pane egui desktop interface with SVG vector piece rendering, board
+  flipping (Black perspective), and dual-tone gradient highlighting of board
+  pressure.
+- SQLite persistence via sqlx with cross-platform, pure-Rust database
+  initialization and migrations; database work runs off the render loop over
+  a flume channel bridge.
+- Unified LLM integration (Google, OpenAI, Anthropic) with streaming chat
+  responses and persistent per-game chat context.
+- Algebraic notation parser for move entry via chat, PGN sequence loading for
+  importing full games, and rapid board initialization from custom positions.
+- Predictive-matrix heat map and visual AI continuation arrows rendered on
+  the board from LLM analysis.
+- Game session roster with creation, deletion, resumption, manual
+  resignation, and a non-destructive sandbox exploration mode for reviewing
+  history.
