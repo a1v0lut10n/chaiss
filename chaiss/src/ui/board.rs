@@ -23,6 +23,107 @@ fn get_image_source_for_piece(piece: &Piece) -> egui::ImageSource<'static> {
     }
 }
 
+/// Horizontal move-history strip: the currently displayed move sits at the
+/// pane's center, bright and slightly magnified; neighbors shrink and dim
+/// progressively with distance in both directions. Items are laid outward
+/// from the center until the available width is spent, so the visible count
+/// adapts to the pane. Exploration plies have no recorded notation and show
+/// as `···`.
+fn draw_move_history_strip(ui: &mut egui::Ui, app: &crate::app::ChaissApp) {
+    use crate::ui::theme;
+
+    if app.history_stack.is_empty() {
+        return;
+    }
+
+    const GAP: f32 = 10.0;
+    const STRIP_H: f32 = 26.0;
+    let (rect, _) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), STRIP_H),
+        egui::Sense::hover(),
+    );
+    if !ui.is_rect_visible(rect) {
+        return;
+    }
+    let painter = ui.painter_at(rect);
+    let center_y = rect.center().y;
+
+    let label_for = |idx: usize| -> String {
+        match app.algebraic_history.get(idx).map(String::as_str) {
+            Some("START") => "Start".to_string(),
+            Some(san) => san.to_string(),
+            None => "···".to_string(),
+        }
+    };
+
+    // The current move: bright, magnified, anchored at the pane center so it
+    // doesn't wander horizontally while navigating.
+    let current = painter.layout_no_wrap(
+        label_for(app.view_cursor),
+        egui::FontId::proportional(16.0),
+        theme::TEXT_BRIGHT,
+    );
+    let current_half_w = current.size().x / 2.0;
+    let current_size = current.size();
+    painter.galley(
+        egui::pos2(
+            rect.center().x - current_half_w,
+            center_y - current_size.y / 2.0,
+        ),
+        current,
+        theme::TEXT_BRIGHT,
+    );
+
+    // Neighbors fan outward, shrinking and dimming with distance.
+    let style_for = |d: usize| -> (f32, egui::Color32) {
+        let size = (14.0 - d as f32).max(10.0);
+        let fade = (0.85 * 0.88_f32.powi(d as i32 - 1)).max(0.25);
+        (size, theme::TEXT_PRIMARY.gamma_multiply(fade))
+    };
+
+    // Past moves, walking left from the center.
+    let mut x = rect.center().x - current_half_w - GAP;
+    for d in 1..=app.view_cursor {
+        let (size, color) = style_for(d);
+        let galley = painter.layout_no_wrap(
+            label_for(app.view_cursor - d),
+            egui::FontId::proportional(size),
+            color,
+        );
+        let w = galley.size().x;
+        if x - w < rect.left() {
+            break;
+        }
+        painter.galley(
+            egui::pos2(x - w, center_y - galley.size().y / 2.0),
+            galley,
+            color,
+        );
+        x -= w + GAP;
+    }
+
+    // Future moves, walking right from the center.
+    let mut x = rect.center().x + current_half_w + GAP;
+    for d in 1..(app.history_stack.len() - app.view_cursor) {
+        let (size, color) = style_for(d);
+        let galley = painter.layout_no_wrap(
+            label_for(app.view_cursor + d),
+            egui::FontId::proportional(size),
+            color,
+        );
+        let w = galley.size().x;
+        if x + w > rect.right() {
+            break;
+        }
+        painter.galley(
+            egui::pos2(x, center_y - galley.size().y / 2.0),
+            galley,
+            color,
+        );
+        x += w + GAP;
+    }
+}
+
 pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
     let terminal_state = app.game_state.evaluate_terminal_state();
 
@@ -34,7 +135,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                 ui.heading("Sandbox Navigation:");
 
                 // Toggle explicitly manually forces Forward Sandbox mode
-                if ui.checkbox(&mut app.sandbox_enabled, "Enable Forward Sandbox").changed()
+                if ui.checkbox(&mut app.sandbox_enabled, "Exploration mode").changed()
                     && !app.sandbox_enabled {
                         // Instantly restore persisted state when toggling Sandbox Mode OFF natively!
                         app.history_stack.truncate(app.live_db_ply);
@@ -47,13 +148,15 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     }
 
                 if app.is_exploration_mode {
-                    ui.label(egui::RichText::new("EXPLORATION MODE ACTIVE (Not saving to Database)").color(egui::Color32::from_rgb(255, 140, 0))); // Warning Orange
+                    ui.label(egui::RichText::new("Exploration mode").color(egui::Color32::from_rgb(255, 140, 0))); // Warning Orange
                 } else {
                     ui.label(egui::RichText::new("LIVE DB TRACKING").color(egui::Color32::from_rgb(0, 200, 0))); // Safe Green
                 }
             });
 
-            ui.add_space(5.0);
+            ui.add_space(6.0);
+            draw_move_history_strip(ui, app);
+            ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 if ui.button("<< Start").clicked() && !app.history_stack.is_empty() {
                     app.view_cursor = 0;
@@ -455,7 +558,9 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             } // End of board loops!
 
             // 5. Draw visual AI Predictive Arrows traversing the generated grid mappings structurally!
-            if !app.ai_predictive_arrows.is_empty() {
+            // Only at the live head: the predicted continuation starts from the
+            // latest position, so it doesn't apply to past or sandbox views.
+            if !app.is_exploration_mode && !app.ai_predictive_arrows.is_empty() {
                 let arrow_count = app.ai_predictive_arrows.len();
                 for (idx, &(from, to, side)) in app.ai_predictive_arrows.iter().enumerate() {
                     let from_r = from / 8;

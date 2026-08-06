@@ -25,6 +25,7 @@ pub const CHIP_BORDER_HOVER: Color32 = Color32::from_rgb(0x40, 0x64, 0x8b);
 // ─── Text ────────────────────────────────────────────────────
 
 pub const TEXT_PRIMARY: Color32 = Color32::from_rgb(0xd7, 0xdc, 0xe3);
+pub const TEXT_BRIGHT: Color32 = Color32::from_rgb(0xee, 0xf1, 0xf5);
 pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(0x99, 0xa2, 0xad);
 pub const TEXT_FAINT: Color32 = Color32::from_rgb(0x6b, 0x74, 0x80);
 
