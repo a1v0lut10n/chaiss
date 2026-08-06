@@ -1,4 +1,4 @@
-# Brainforge-style theme: session cards and Resign button
+# aicogito-style theme: session cards and Resign button
 
 - **When:** 2026-08-06 12:56:53 local
 - **Type:** execution
