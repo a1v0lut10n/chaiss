@@ -9,7 +9,7 @@
 
 The roster rendered sessions as wrapped selectable labels with a trailing
 trash button, so the icons never aligned, and Resign was bright-red heading
-text on a default button. Adopted the brainforge-app "Feed + Desk" visual
+text on a default button. Adopted the aicogito "Feed + Desk" visual
 language (its skills-view cards and button styles).
 
 ## Details
