@@ -19,6 +19,7 @@ pub enum DbEvent {
         algebraic: Vec<String>,
         chat: Vec<(String, String)>,
         game_id: i64,
+        flip_board: bool,
     },
 }
 
@@ -182,6 +183,15 @@ impl eframe::App for ChaissApp {
                         self.prompt_buffer.clear();
                         self.ai_predictive_arrows.clear();
 
+                        // Stamp the live orientation onto the fresh row so a restart resumes the same viewpoint.
+                        if self.flip_board {
+                            if let Some(db) = self.db_client.clone() {
+                                tokio::spawn(async move {
+                                    let _ = db.set_flip_board(game_id, true).await;
+                                });
+                            }
+                        }
+
                         // Automatically fire a Flume DB fetch algebraically to dynamically inject the updated roster UI!
                         if let (Some(db), Some(tx)) = (self.db_client.clone(), self.db_tx.clone()) {
                             tokio::spawn(async move {
@@ -241,12 +251,15 @@ impl eframe::App for ChaissApp {
                                             .load_chat_history(latest_id)
                                             .await
                                             .unwrap_or_default();
+                                        let flip_board =
+                                            db.get_flip_board(latest_id).await.unwrap_or(false);
                                         let _ = tx
                                             .send_async(DbEvent::GameResumed {
                                                 history,
                                                 algebraic,
                                                 chat,
                                                 game_id: latest_id,
+                                                flip_board,
                                             })
                                             .await;
                                     }
@@ -259,10 +272,12 @@ impl eframe::App for ChaissApp {
                         algebraic,
                         chat,
                         game_id,
+                        flip_board,
                     } => {
                         self.active_game_id = Some(game_id);
                         self.history_stack = history;
                         self.algebraic_history = algebraic;
+                        self.flip_board = flip_board;
 
                         self.chat_history = chat;
                         self.live_llm_response.clear();

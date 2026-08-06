@@ -74,12 +74,15 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                                 .load_chat_history(g_id)
                                                 .await
                                                 .unwrap_or_default();
+                                            let flip_board =
+                                                db.get_flip_board(g_id).await.unwrap_or(false);
                                             let _ = tx
                                                 .send_async(crate::app::DbEvent::GameResumed {
                                                     history,
                                                     algebraic,
                                                     chat,
                                                     game_id: g_id,
+                                                    flip_board,
                                                 })
                                                 .await;
                                         }
