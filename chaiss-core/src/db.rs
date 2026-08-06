@@ -86,6 +86,25 @@ impl DbClient {
         Ok(())
     }
 
+    /// Persists the board-flip orientation so resuming a session restores the same viewpoint.
+    pub async fn set_flip_board(&self, game_id: i64, flipped: bool) -> Result<(), Error> {
+        sqlx::query!(
+            "UPDATE games SET flip_board = ? WHERE id = ?",
+            flipped,
+            game_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_flip_board(&self, game_id: i64) -> Result<bool, Error> {
+        let record = sqlx::query!("SELECT flip_board FROM games WHERE id = ?", game_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(record.is_some_and(|r| r.flip_board != 0))
+    }
+
     pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
 

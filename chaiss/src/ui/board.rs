@@ -151,7 +151,18 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             });
 
             ui.add_space(20.0);
-            ui.checkbox(&mut app.flip_board, "Flip Board (Play as Black)");
+            if ui
+                .checkbox(&mut app.flip_board, "Flip Board (Play as Black)")
+                .changed()
+            {
+                // Persist the orientation on the active session so resuming restores it.
+                if let (Some(db), Some(game_id)) = (app.db_client.clone(), app.active_game_id) {
+                    let flipped = app.flip_board;
+                    tokio::spawn(async move {
+                        let _ = db.set_flip_board(game_id, flipped).await;
+                    });
+                }
+            }
         });
 
         ui.add_space(10.0);
