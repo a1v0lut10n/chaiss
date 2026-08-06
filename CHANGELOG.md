@@ -8,6 +8,49 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-06
+
+### Added
+
+- Board orientation is persisted per game: the "Flip Board (Play as Black)"
+  setting is stored in the database and restored when a session is resumed
+  (databases from earlier versions are migrated automatically).
+- Formal move undo: an "⟲ Undo Move" button reverts the last committed move
+  (or a mistaken resignation) in the database and resynchronizes the app;
+  useful when shadowing a game played on a real board or chess.com.
+- Horizontal move-history strip in the sandbox navigation: the currently
+  displayed move is shown bright and slightly magnified at the center, with
+  past and future moves fanning outward progressively smaller and dimmer;
+  the visible count adapts to the window width.
+- Local `NEXT-TICKET` branch numbering convention (`docs/NEXT-TICKET`),
+  replacing Jira-issued ticket numbers.
+
+### Changed
+
+- Upgraded the UI stack to egui/eframe 0.36, with `egui_extras` 0.36 and
+  `egui_commonmark` 0.25 aligned.
+- Session roster restyled as two-line cards with right-aligned delete icons
+  and an accent-highlighted active session, adopting a shared design-token
+  theme (`ui/theme.rs`); key buttons (Create New Game, Resign, Undo Move)
+  use themed 28px variants with stable layout and subtle hover hints, and
+  the Analysis Overlay dropdown matches their height.
+- Predictive-matrix arrows are colored by side — transparent blue for
+  White's predicted moves, red for Black's, matching the analysis overlay's
+  color language — with transparency increasing for deeper plies. They are
+  drawn only at the live position, not in exploration views.
+- Sandbox labels simplified: the checkbox and status banner now read
+  "Exploration mode".
+
+### Fixed
+
+- Buttons no longer shrink or shift their label on hover (replaced stateful
+  egui buttons with directly painted equivalents).
+- The session cards' delete-icon hover tint (and pointer cursor) now
+  actually shows; egui's hover arbitration inside the scroll area never
+  flagged those responses.
+- Predictive arrows were rendered over-bright due to a premultiplied-alpha
+  misuse; they now blend correctly.
+
 ## [0.1.7] - 2026-07-17
 
 ### Fixed
