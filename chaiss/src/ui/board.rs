@@ -101,7 +101,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
 
                 if terminal_state.is_none() {
                     ui.add_space(15.0);
-                    if crate::ui::theme::danger_button(ui, "⚐ Resign").clicked() {
+                    if crate::ui::theme::danger_button(ui, "⚐ Resign", 80.0).clicked() {
                         let loser = app.game_state.active_color;
                         let winner = loser.opposite();
                         let result_str = if winner == Color::White { "1-0".to_string() } else { "0-1".to_string() };
@@ -131,12 +131,52 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         }
                     }
                 }
+
+                // Shadowing a real board means faulty formal moves happen; offer a
+                // formal undo whenever at least one committed move (or a logged
+                // result marker) exists. The DB drops the last move row, then the
+                // regular resume path resynchronizes the whole app state.
+                let can_undo = app.active_game_id.is_some()
+                    && app.algebraic_history.len() > 1
+                    && !app.is_llm_thinking;
+                if can_undo {
+                    ui.add_space(8.0);
+                    let undo_res = crate::ui::theme::toolbar_button(ui, "⟲ Undo Move", 110.0)
+                        .on_hover_text("Formally revert the last committed move");
+                    if undo_res.clicked() {
+                        if let (Some(db), Some(tx), Some(game_id)) = (
+                            app.db_client.clone(),
+                            app.db_tx.clone(),
+                            app.active_game_id,
+                        ) {
+                            tokio::spawn(async move {
+                                if let Ok(Some(_recovered_fen)) = db.undo_last_move(game_id).await {
+                                    crate::app::ChaissApp::spawn_game_resume(db, tx, game_id);
+                                }
+                            });
+                        }
+                    }
+                }
             });
             ui.add_space(15.0);
 
-            ui.horizontal(|ui| {
-                ui.heading("Analysis Overlay:");
+            // Loose items (no nested horizontal) so the wrapped row centers them
+            // on the same axis as the buttons; a nested group gets its own
+            // centering context and ends up a few pixels lower. The label is
+            // 15pt (button-sized) rather than a heading so the combo's arrow
+            // still fits inside the central panel at the default window width.
+            ui.label(
+                egui::RichText::new("Analysis Overlay:")
+                    .size(15.0)
+                    .color(egui::Color32::LIGHT_GRAY),
+            );
+            ui.scope(|ui| {
+                // Match the 28px toolbar-button height (the combo button sizes
+                // itself from interact_size) and pin the width so switching
+                // between selection texts can't shift the row.
+                ui.style_mut().spacing.interact_size.y = crate::ui::theme::TOOLBAR_BUTTON_H;
                 egui::ComboBox::from_id_salt("focus_matrix_selector")
+                    .width(132.0)
                     .selected_text(match app.focus_matrix {
                         FocusMatrix::None => "None",
                         FocusMatrix::FirstOrder => "First-Order Heat",
