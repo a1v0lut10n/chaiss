@@ -18,7 +18,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             ui.heading("Game Roster");
             ui.add_space(10.0);
 
-            if theme::primary_button(ui, "Create New Game").clicked() {
+            if theme::primary_toolbar_button(ui, "Create New Game", 150.0).clicked() {
                 app.show_new_game_modal = true;
             }
             ui.add_space(20.0);
@@ -38,7 +38,6 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         let is_active = app.active_game_id == Some(session.id);
                         let g_id = session.id;
 
-                        let mut trash_hovered = false;
                         let (card_res, trash_res) = theme::frame_with_corner_click(
                             ui,
                             theme::session_card_frame(is_active),
@@ -96,8 +95,12 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                             },
                         );
 
-                        if trash_res.hovered() {
-                            trash_hovered = true;
+                        // Drive the visual hover hints from raw pointer containment:
+                        // inside the scroll area egui's hover arbitration doesn't
+                        // mark these `interact` responses hovered, even though their
+                        // clicks route correctly.
+                        let trash_hovered = ui.rect_contains_pointer(trash_res.rect);
+                        if trash_hovered {
                             ui.painter().text(
                                 trash_res.rect.center(),
                                 egui::Align2::CENTER_CENTER,
@@ -107,8 +110,19 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                             );
                         }
 
-                        if card_res.hovered() || trash_res.hovered() {
+                        if ui.rect_contains_pointer(card_res.rect) {
                             ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+                            let hover_border = if is_active {
+                                theme::CHIP_BORDER_HOVER
+                            } else {
+                                theme::CARD_BORDER_HOVER
+                            };
+                            theme::paint_hover_border(
+                                ui,
+                                card_res.rect,
+                                theme::RADIUS_CARD,
+                                hover_border,
+                            );
                         }
 
                         if trash_res.clicked() {
@@ -127,27 +141,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         } else if card_res.clicked() && !trash_hovered {
                             if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone())
                             {
-                                tokio::spawn(async move {
-                                    if let Ok((root_fen, mut history, mut algebraic)) =
-                                        db.load_game_history(g_id).await
-                                    {
-                                        history.insert(0, root_fen);
-                                        algebraic.insert(0, "START".to_string());
-                                        let chat =
-                                            db.load_chat_history(g_id).await.unwrap_or_default();
-                                        let flip_board =
-                                            db.get_flip_board(g_id).await.unwrap_or(false);
-                                        let _ = tx
-                                            .send_async(crate::app::DbEvent::GameResumed {
-                                                history,
-                                                algebraic,
-                                                chat,
-                                                game_id: g_id,
-                                                flip_board,
-                                            })
-                                            .await;
-                                    }
-                                });
+                                crate::app::ChaissApp::spawn_game_resume(db, tx, g_id);
                             }
                         }
 

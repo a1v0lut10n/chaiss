@@ -136,6 +136,29 @@ impl ChaissApp {
         sanitized
     }
 
+    /// Loads a game's full state off-thread and emits `GameResumed` — the one
+    /// path for cold-boot resume, roster clicks, and post-undo resyncs.
+    pub fn spawn_game_resume(db: Arc<DbClient>, tx: flume::Sender<DbEvent>, game_id: i64) {
+        tokio::spawn(async move {
+            if let Ok((root_fen, mut history, mut algebraic)) = db.load_game_history(game_id).await
+            {
+                history.insert(0, root_fen);
+                algebraic.insert(0, "START".to_string());
+                let chat = db.load_chat_history(game_id).await.unwrap_or_default();
+                let flip_board = db.get_flip_board(game_id).await.unwrap_or(false);
+                let _ = tx
+                    .send_async(DbEvent::GameResumed {
+                        history,
+                        algebraic,
+                        chat,
+                        game_id,
+                        flip_board,
+                    })
+                    .await;
+            }
+        });
+    }
+
     pub fn new(
         _cc: &eframe::CreationContext<'_>,
         db_client: Arc<DbClient>,
@@ -241,29 +264,7 @@ impl eframe::App for ChaissApp {
                             if let (Some(db), Some(tx)) =
                                 (self.db_client.clone(), self.db_tx.clone())
                             {
-                                tokio::spawn(async move {
-                                    if let Ok((root_fen, mut history, mut algebraic)) =
-                                        db.load_game_history(latest_id).await
-                                    {
-                                        history.insert(0, root_fen);
-                                        algebraic.insert(0, "START".to_string());
-                                        let chat = db
-                                            .load_chat_history(latest_id)
-                                            .await
-                                            .unwrap_or_default();
-                                        let flip_board =
-                                            db.get_flip_board(latest_id).await.unwrap_or(false);
-                                        let _ = tx
-                                            .send_async(DbEvent::GameResumed {
-                                                history,
-                                                algebraic,
-                                                chat,
-                                                game_id: latest_id,
-                                                flip_board,
-                                            })
-                                            .await;
-                                    }
-                                });
+                                Self::spawn_game_resume(db, tx, latest_id);
                             }
                         }
                     }
