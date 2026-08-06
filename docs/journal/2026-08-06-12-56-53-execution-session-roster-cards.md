@@ -14,7 +14,7 @@ language (its skills-view cards and button styles).
 
 ## Details
 
-New `ui/theme.rs` carries a hand-synced subset of brainforge-ui's tokens and
+New `ui/theme.rs` carries a hand-synced subset of aicogito-ui's tokens and
 widgets (card/chip surfaces, text tiers, accent, primary/standard buttons,
 section labels) plus its `frame_with_corner_click` pattern — the card senses
 clicks across its full width while the corner trash icon, registered last,
@@ -25,5 +25,5 @@ faint red border and soft red text. Verified live via the egui MCP.
 
 ## Links
 
-- Origin: brainforge-app `crates/brainforge-ui/src/tokens.rs`, `widgets.rs`
+- Origin: aicogito `crates/aicogito-ui/src/tokens.rs`, `widgets.rs`
 - Related entry: `2026-08-06-12-41-09-execution-persist-board-flip.md`
