@@ -101,8 +101,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
 
                 if terminal_state.is_none() {
                     ui.add_space(15.0);
-                    let resign_btn = egui::Button::new(egui::RichText::new("⚐ Resign").heading().color(egui::Color32::from_rgb(255, 100, 100)));
-                    if ui.add(resign_btn).clicked() {
+                    if crate::ui::theme::danger_button(ui, "⚐ Resign").clicked() {
                         let loser = app.game_state.active_color;
                         let winner = loser.opposite();
                         let result_str = if winner == Color::White { "1-0".to_string() } else { "0-1".to_string() };

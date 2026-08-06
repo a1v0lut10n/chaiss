@@ -1,3 +1,4 @@
+use crate::ui::theme;
 use eframe::egui;
 
 pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
@@ -8,113 +9,149 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
     egui::Panel::left("roster_panel")
         .resizable(true)
         .size_range(200.0..=f32::INFINITY)
+        .frame(
+            egui::Frame::new()
+                .fill(theme::SIDEBAR)
+                .inner_margin(egui::Margin::same(12)),
+        )
         .show(ui, |ui| {
             ui.heading("Game Roster");
             ui.add_space(10.0);
 
-            if ui.button("Create New Game").clicked() {
+            if theme::primary_button(ui, "Create New Game").clicked() {
                 app.show_new_game_modal = true;
             }
             ui.add_space(20.0);
 
-            ui.label("Active Sessions:");
-            ui.separator();
+            theme::section_label(ui, "Active Sessions");
+            ui.add_space(6.0);
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if app.active_sessions.is_empty() {
                     ui.label(
-                        egui::RichText::new("No active sessions natively tracked...").italics(),
+                        egui::RichText::new("No active sessions natively tracked...")
+                            .italics()
+                            .color(theme::TEXT_FAINT),
                     );
                 } else {
                     for session in &app.active_sessions {
                         let is_active = app.active_game_id == Some(session.id);
-                        let btn_label = format!(
-                            "{} ({} vs {})",
-                            session.name, session.white_player, session.black_player
+                        let g_id = session.id;
+
+                        let mut trash_hovered = false;
+                        let (card_res, trash_res) = theme::frame_with_corner_click(
+                            ui,
+                            theme::session_card_frame(is_active),
+                            egui::Id::new(("session_card", g_id)),
+                            |ui| {
+                                ui.set_width(ui.available_width());
+                                let mut trash_rect = egui::Rect::NOTHING;
+                                ui.horizontal(|ui| {
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            // Paint faint; the corner response repaints it
+                                            // red on hover after hit-testing below.
+                                            let trash = ui.label(
+                                                egui::RichText::new("🗑")
+                                                    .size(theme::SIZE_SECONDARY)
+                                                    .color(theme::TEXT_FAINT),
+                                            );
+                                            trash_rect = trash.rect;
+
+                                            let name_color = if is_active {
+                                                theme::ACCENT
+                                            } else {
+                                                theme::TEXT_PRIMARY
+                                            };
+                                            ui.with_layout(
+                                                egui::Layout::left_to_right(egui::Align::Center),
+                                                |ui| {
+                                                    ui.add(
+                                                        egui::Label::new(
+                                                            egui::RichText::new(&session.name)
+                                                                .strong()
+                                                                .color(name_color),
+                                                        )
+                                                        .truncate(),
+                                                    );
+                                                },
+                                            );
+                                        },
+                                    );
+                                });
+                                ui.add_space(2.0);
+                                ui.add(
+                                    egui::Label::new(
+                                        egui::RichText::new(format!(
+                                            "{} vs {}",
+                                            session.white_player, session.black_player
+                                        ))
+                                        .size(theme::SIZE_FINE)
+                                        .color(theme::TEXT_SECONDARY),
+                                    )
+                                    .truncate(),
+                                );
+                                trash_rect
+                            },
                         );
 
-                        let rich_text = if is_active {
-                            // Highlight dynamically playing instance natively in explicit Green!
-                            egui::RichText::new(btn_label)
-                                .strong()
-                                .color(egui::Color32::from_rgb(100, 255, 100))
-                        } else {
-                            egui::RichText::new(btn_label)
-                        };
-
-                        ui.horizontal(|ui| {
-                            let g_id = session.id;
-                            let mut trigger_delete = false;
-
-                            // Trash takes exactly 24.0 pixels at the right
-                            let trash_width = 24.0;
-                            let text_width =
-                                ui.available_width() - trash_width - ui.spacing().item_spacing.x;
-
-                            // Use SelectableLabels for pills natively
-                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
-
-                            let pill_res = ui
-                                .allocate_ui(egui::vec2(text_width, 0.0), |ui| {
-                                    ui.selectable_label(is_active, rich_text)
-                                })
-                                .inner;
-
-                            if pill_res.clicked() {
-                                if let (Some(db), Some(tx)) =
-                                    (app.db_client.clone(), app.db_tx.clone())
-                                {
-                                    tokio::spawn(async move {
-                                        if let Ok((root_fen, mut history, mut algebraic)) =
-                                            db.load_game_history(g_id).await
-                                        {
-                                            history.insert(0, root_fen);
-                                            algebraic.insert(0, "START".to_string());
-                                            let chat = db
-                                                .load_chat_history(g_id)
-                                                .await
-                                                .unwrap_or_default();
-                                            let flip_board =
-                                                db.get_flip_board(g_id).await.unwrap_or(false);
-                                            let _ = tx
-                                                .send_async(crate::app::DbEvent::GameResumed {
-                                                    history,
-                                                    algebraic,
-                                                    chat,
-                                                    game_id: g_id,
-                                                    flip_board,
-                                                })
-                                                .await;
-                                        }
-                                    });
-                                }
-                            }
-
-                            let trash_btn = egui::Button::new(
-                                egui::RichText::new("🗑")
-                                    .color(egui::Color32::from_rgb(200, 50, 50)),
+                        if trash_res.hovered() {
+                            trash_hovered = true;
+                            ui.painter().text(
+                                trash_res.rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "🗑",
+                                egui::FontId::proportional(theme::SIZE_SECONDARY),
+                                theme::DANGER,
                             );
-                            if ui.add_sized([trash_width, 24.0], trash_btn).clicked() {
-                                trigger_delete = true;
-                            }
+                        }
 
-                            if trigger_delete {
-                                if let (Some(db), Some(tx)) =
-                                    (app.db_client.clone(), app.db_tx.clone())
-                                {
-                                    tokio::spawn(async move {
-                                        if db.delete_game(g_id).await.is_ok() {
-                                            let _ = tx
-                                                .send_async(crate::app::DbEvent::GameDeleted {
-                                                    game_id: g_id,
-                                                })
-                                                .await;
-                                        }
-                                    });
-                                }
+                        if card_res.hovered() || trash_res.hovered() {
+                            ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+                        }
+
+                        if trash_res.clicked() {
+                            if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone())
+                            {
+                                tokio::spawn(async move {
+                                    if db.delete_game(g_id).await.is_ok() {
+                                        let _ = tx
+                                            .send_async(crate::app::DbEvent::GameDeleted {
+                                                game_id: g_id,
+                                            })
+                                            .await;
+                                    }
+                                });
                             }
-                        });
-                        ui.add_space(5.0);
+                        } else if card_res.clicked() && !trash_hovered {
+                            if let (Some(db), Some(tx)) = (app.db_client.clone(), app.db_tx.clone())
+                            {
+                                tokio::spawn(async move {
+                                    if let Ok((root_fen, mut history, mut algebraic)) =
+                                        db.load_game_history(g_id).await
+                                    {
+                                        history.insert(0, root_fen);
+                                        algebraic.insert(0, "START".to_string());
+                                        let chat =
+                                            db.load_chat_history(g_id).await.unwrap_or_default();
+                                        let flip_board =
+                                            db.get_flip_board(g_id).await.unwrap_or(false);
+                                        let _ = tx
+                                            .send_async(crate::app::DbEvent::GameResumed {
+                                                history,
+                                                algebraic,
+                                                chat,
+                                                game_id: g_id,
+                                                flip_board,
+                                            })
+                                            .await;
+                                    }
+                                });
+                            }
+                        }
+
+                        ui.add_space(8.0);
                     }
                 }
             });
@@ -156,10 +193,10 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
 
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    if ui.button("Cancel").clicked() {
+                    if theme::standard_button(ui, "Cancel").clicked() {
                         app.show_new_game_modal = false;
                     }
-                    if ui.button("Confirm & Start").clicked() {
+                    if theme::primary_button(ui, "Confirm & Start").clicked() {
                         app.show_new_game_modal = false;
                         println!("Invoking Async DB Threads for Game Creation!");
 
