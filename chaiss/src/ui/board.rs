@@ -457,7 +457,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             // 5. Draw visual AI Predictive Arrows traversing the generated grid mappings structurally!
             if !app.ai_predictive_arrows.is_empty() {
                 let arrow_count = app.ai_predictive_arrows.len();
-                for (idx, &(from, to)) in app.ai_predictive_arrows.iter().enumerate() {
+                for (idx, &(from, to, side)) in app.ai_predictive_arrows.iter().enumerate() {
                     let from_r = from / 8;
                     let from_c = from % 8;
                     let to_r = to / 8;
@@ -481,9 +481,18 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     let adjusted_vector = adjusted_to - adjusted_from;
                     let adjusted_direction = adjusted_vector.normalized();
 
-                    // Fade visually based on depth (max depth 4)
-                    let alpha_fade = 1.0 - (idx as f32 / (arrow_count as f32).max(1.0) * 0.7);
-                    let color = egui::Color32::from_rgba_premultiplied(0, 200, 255, (255.0 * alpha_fade) as u8);
+                    // Match the analysis overlay's power-sphere hues: blue for
+                    // White's predicted moves, red for Black's. Transparency
+                    // grows with depth — the next move is nearly opaque, the
+                    // deepest ply barely a ghost. Unmultiplied color, so the
+                    // alpha actually blends instead of brightening.
+                    let (r_val, b_val) = match side {
+                        Color::White => (0, 255),
+                        Color::Black => (255, 0),
+                    };
+                    let depth = idx as f32 / (arrow_count.saturating_sub(1)).max(1) as f32;
+                    let alpha = (230.0 - 175.0 * depth) as u8;
+                    let color = egui::Color32::from_rgba_unmultiplied(r_val, 0, b_val, alpha);
 
                     // Custom Geometrical Rendering natively overriding crude Egui primitives!
                     let line_thickness = square_size * 0.08;

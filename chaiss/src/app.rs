@@ -79,7 +79,9 @@ pub struct ChaissApp {
 
     // Matrix Visualization Architecture
     pub focus_matrix: FocusMatrix,
-    pub ai_predictive_arrows: Vec<(usize, usize)>,
+    /// Predicted continuation arrows as `(from, to, side_to_move)` — the side
+    /// colors the arrow to match the analysis overlay (blue white / red black).
+    pub ai_predictive_arrows: Vec<(usize, usize, chaiss_core::engine::Color)>,
 
     // Retry and Auto-Healing Mechanics
     pub retry_count: usize,
@@ -335,7 +337,11 @@ impl eframe::App for ChaissApp {
                                                 &sim_state, &clean_ply,
                                             )
                                         {
-                                            self.ai_predictive_arrows.push((from, to));
+                                            self.ai_predictive_arrows.push((
+                                                from,
+                                                to,
+                                                sim_state.active_color,
+                                            ));
                                             sim_state.apply_move(from, to, promo);
                                         } else {
                                             break;
@@ -465,7 +471,11 @@ impl eframe::App for ChaissApp {
                                         &sim_state, &clean_ply,
                                     )
                                 {
-                                    self.ai_predictive_arrows.push((from, to));
+                                    self.ai_predictive_arrows.push((
+                                        from,
+                                        to,
+                                        sim_state.active_color,
+                                    ));
                                     sim_state.apply_move(from, to, promo);
                                 } else {
                                     break; // Discard sequence securely tracking geometry bounds if parse structurally fails natively
