@@ -1,5 +1,5 @@
-//! Visual tokens and shared widgets adopted from the brainforge-app
-//! "Feed + Desk" design language (brainforge-ui `tokens.rs` / `widgets.rs`).
+//! Visual tokens and shared widgets adopted from the aicogito
+//! "Feed + Desk" design language (aicogito `tokens.rs` / `widgets.rs`).
 //! Only the subset chaiss uses lives here; keep values in sync by hand.
 
 use eframe::egui::{
