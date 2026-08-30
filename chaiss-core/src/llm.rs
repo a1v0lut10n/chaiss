@@ -16,37 +16,202 @@ pub struct LlmPromptPayload {
     pub system_role: String,
 }
 
-// Orchestrate mathematically generic non-blocking HTTP REST streaming logic directly interacting with Gemini 3.1!
+/// Default model per backend when `LLM_MODEL` is not set.
+pub const DEFAULT_GOOGLE_MODEL: &str = "gemini-3.7-flash";
+pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4-turbo";
+pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-3-opus-20240229";
+pub const DEFAULT_OLLAMA_MODEL: &str = "llama3";
+
+/// An LLM failure split into what the user should read and what a developer
+/// needs for troubleshooting.
+///
+/// `user_message` is short, free of protocol jargon, and safe to render in the
+/// chat panel. `detail` carries the raw backend error (status, JSON body, ...)
+/// and is meant for the console log only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LlmError {
+    pub user_message: String,
+    pub detail: String,
+}
+
+impl std::fmt::Display for LlmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.user_message)
+    }
+}
+
+impl std::error::Error for LlmError {}
+
+impl LlmError {
+    fn new(user_message: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            user_message: user_message.into(),
+            detail: detail.into(),
+        }
+    }
+}
+
+/// Extract the first HTTP status code mentioned in a raw backend error, e.g.
+/// `"... returned error status: 503 Service Unavailable ..."` or a JSON body
+/// containing `"code": 503`.
+fn extract_http_status(raw: &str) -> Option<u16> {
+    let lower = raw.to_ascii_lowercase();
+    for marker in [
+        "error status: ",
+        "\"code\": ",
+        "\"code\":",
+        "status code ",
+        "status: ",
+    ] {
+        if let Some(pos) = lower.find(marker) {
+            let digits: String = lower[pos + marker.len()..]
+                .trim_start()
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
+            if digits.len() == 3 {
+                if let Ok(code) = digits.parse::<u16>() {
+                    return Some(code);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Translate a raw backend/transport error into an [`LlmError`] whose
+/// `user_message` explains what happened in plain language while `detail`
+/// preserves the original text for the console.
+pub fn classify_backend_error(provider: &str, model: &str, raw: impl Into<String>) -> LlmError {
+    let raw = raw.into();
+    let lower = raw.to_ascii_lowercase();
+    let target = format!("{model} ({provider})");
+    let status = extract_http_status(&raw);
+
+    let overloaded = status == Some(503)
+        || lower.contains("unavailable")
+        || lower.contains("high demand")
+        || lower.contains("overloaded");
+    let rate_limited = status == Some(429)
+        || lower.contains("resource_exhausted")
+        || lower.contains("rate limit")
+        || lower.contains("quota");
+    let unauthorized = matches!(status, Some(401) | Some(403))
+        || lower.contains("api key not valid")
+        || lower.contains("permission_denied")
+        || lower.contains("unauthenticated");
+    let not_found = status == Some(404) || lower.contains("not_found");
+    let server_error =
+        matches!(status, Some(500) | Some(502) | Some(504)) || lower.contains("internal error");
+    let network = lower.contains("timed out")
+        || lower.contains("timeout")
+        || lower.contains("connection")
+        || lower.contains("dns")
+        || lower.contains("network");
+
+    let user_message = if overloaded {
+        format!(
+            "The AI backend {target} is temporarily unavailable due to high demand. \
+             Spikes are usually short-lived — please try again in a moment."
+        )
+    } else if rate_limited {
+        format!(
+            "The AI backend {target} is rate-limiting requests or your quota is exhausted. \
+             Please wait a little before retrying, or check your plan and billing."
+        )
+    } else if unauthorized {
+        format!(
+            "The AI backend {target} rejected the API key. \
+             Please check the key in your `.env` file and restart the application."
+        )
+    } else if not_found {
+        format!(
+            "The model {target} was not found. \
+             Please check `LLM_MODEL` in your `.env` file — the model may have been renamed or retired."
+        )
+    } else if server_error {
+        format!(
+            "The AI backend {target} reported an internal error. \
+             This is on the provider's side — please try again shortly."
+        )
+    } else if network {
+        format!(
+            "Could not reach the AI backend {target}. \
+             Please check your network connection and try again."
+        )
+    } else {
+        format!(
+            "The AI backend {target} returned an unexpected error. See the console for details."
+        )
+    };
+
+    LlmError::new(user_message, raw)
+}
+
+// Orchestrate non-blocking HTTP REST streaming against the configured backend (Gemini by default).
 pub async fn stream_llm_response(
     payload: LlmPromptPayload,
     tx: Sender<String>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(), LlmError> {
     let llm_backend_str = std::env::var("LLM_BACKEND")
         .unwrap_or_else(|_| "google".to_string())
         .to_lowercase();
 
-    let (backend_enum, api_key_env, default_model) = match llm_backend_str.as_str() {
-        "openai" => (LLMBackend::OpenAI, "OPENAI_API_KEY", "gpt-4-turbo"),
+    let (backend_enum, provider_name, api_key_env, default_model) = match llm_backend_str.as_str() {
+        "openai" => (
+            LLMBackend::OpenAI,
+            "OpenAI",
+            "OPENAI_API_KEY",
+            DEFAULT_OPENAI_MODEL,
+        ),
         "anthropic" => (
             LLMBackend::Anthropic,
+            "Anthropic",
             "ANTHROPIC_API_KEY",
-            "claude-3-opus-20240229",
+            DEFAULT_ANTHROPIC_MODEL,
         ),
-        "ollama" => (LLMBackend::Ollama, "", "llama3"), // Added fallback for local testing maybe
-        _ => (LLMBackend::Google, "GOOGLE_API_KEY", "gemini-3.5-flash"),
+        "ollama" => (LLMBackend::Ollama, "Ollama", "", DEFAULT_OLLAMA_MODEL), // Local testing fallback
+        _ => (
+            LLMBackend::Google,
+            "Google",
+            "GOOGLE_API_KEY",
+            DEFAULT_GOOGLE_MODEL,
+        ),
     };
 
-    let api_key = std::env::var(api_key_env).unwrap_or_else(|_| "TESTKEY".to_string());
+    // `LLM_MODEL` overrides the per-backend default without a rebuild.
+    let model = std::env::var("LLM_MODEL")
+        .ok()
+        .map(|m| m.trim().to_string())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| default_model.to_string());
 
-    // Validate we actually have a test key or an env var mapped, else error gracefully without crashing!
+    // Google publishes the key as GEMINI_API_KEY in most of its docs; accept both spellings.
+    let api_key = std::env::var(api_key_env)
+        .or_else(|_| {
+            if backend_enum == LLMBackend::Google {
+                std::env::var("GEMINI_API_KEY")
+            } else {
+                Err(std::env::VarError::NotPresent)
+            }
+        })
+        .unwrap_or_else(|_| "TESTKEY".to_string());
+
+    // Validate we actually have a key mapped, else error gracefully without crashing!
     // Skip key check for Ollama / Local backends
     if api_key == "TESTKEY" && backend_enum != LLMBackend::Ollama {
-        return Err(format!("No {} exported natively in your terminal! Please ensure your `.env` file is loaded correctly and you have restarted the application.", api_key_env).into());
+        return Err(LlmError::new(
+            format!(
+                "No API key found for the {provider_name} backend. \
+                 Please set `{api_key_env}` in your `.env` file and restart the application."
+            ),
+            format!("environment variable {api_key_env} is not set (backend: {llm_backend_str})"),
+        ));
     }
 
     let mut builder = LLMBuilder::new()
         .api_key(api_key.clone())
-        .model(default_model) // Frontier architecture structurally mapping rigorous mathematical constraints
+        .model(&model)
         .max_tokens(8000)
         .temperature(0.7);
 
@@ -61,7 +226,12 @@ pub async fn stream_llm_response(
 
     let llm = builder
         .build()
-        .map_err(|e| format!("Failed LLM Build: {:?}", e))?;
+        .map_err(|e| {
+            LlmError::new(
+                format!("Could not initialise the {provider_name} client for model {model}. See the console for details."),
+                format!("Failed LLM Build: {e:?}"),
+            )
+        })?;
 
     let fen_parts: Vec<&str> = payload.current_fen.split_whitespace().collect();
     let is_white_turn = fen_parts.get(1).is_none_or(|&p| p == "w");
@@ -118,10 +288,9 @@ CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis,
     // Inject the final active mathematical Prompt
     messages.push(ChatMessage::user().content(&payload.prompt).build());
 
-    let mut stream = llm
-        .chat_stream(&messages)
-        .await
-        .map_err(|e| format!("Chat Stream err: {}", e))?;
+    let mut stream = llm.chat_stream(&messages).await.map_err(|e| {
+        classify_backend_error(provider_name, &model, format!("Chat Stream err: {e}"))
+    })?;
 
     while let Some(result) = stream.next().await {
         match result {
@@ -129,10 +298,55 @@ CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis,
                 let _ = tx.send_async(token).await;
             }
             Err(e) => {
-                return Err(format!("Network Stream Disconnected Abruptly: {}", e).into());
+                return Err(classify_backend_error(
+                    provider_name,
+                    &model,
+                    format!("Network Stream Disconnected Abruptly: {e}"),
+                ));
             }
         }
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GEMINI_503: &str = "Chat Stream err: Response Format Error: OpenAI API returned error status: 503 Service Unavailable. Raw response: [{ \"error\": { \"code\": 503, \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\", \"status\": \"UNAVAILABLE\" } } ]";
+
+    #[test]
+    fn extracts_status_from_crate_error_text() {
+        assert_eq!(extract_http_status(GEMINI_503), Some(503));
+        assert_eq!(
+            extract_http_status("OpenAI API returned error status: 429 Too Many Requests"),
+            Some(429)
+        );
+        assert_eq!(extract_http_status("{ \"code\": 404 }"), Some(404));
+        assert_eq!(extract_http_status("connection reset by peer"), None);
+    }
+
+    #[test]
+    fn gemini_high_demand_maps_to_friendly_message_and_keeps_detail() {
+        let err = classify_backend_error("Google", "gemini-3.7-flash", GEMINI_503);
+        assert!(err.user_message.contains("temporarily unavailable"));
+        assert!(err.user_message.contains("gemini-3.7-flash (Google)"));
+        assert!(!err.user_message.contains("503"));
+        assert_eq!(err.detail, GEMINI_503);
+        assert_eq!(err.to_string(), err.user_message);
+    }
+
+    #[test]
+    fn classifies_other_statuses() {
+        let m = |raw: &str| classify_backend_error("Google", "m", raw).user_message;
+        assert!(m("error status: 429 Too Many Requests").contains("rate-limiting"));
+        assert!(m("error status: 401 Unauthorized").contains("rejected the API key"));
+        assert!(m("error status: 403 Forbidden").contains("rejected the API key"));
+        assert!(m("error status: 404 Not Found").contains("was not found"));
+        assert!(m("error status: 500 Internal Server Error").contains("internal error"));
+        assert!(m("error status: 502 Bad Gateway").contains("internal error"));
+        assert!(m("request timed out").contains("Could not reach"));
+        assert!(m("something entirely different").contains("unexpected error"));
+    }
 }
