@@ -8,6 +8,29 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-30
+
+### Added
+
+- `LLM_MODEL` environment variable overrides the per-backend default model
+  without a rebuild (documented in `.env.example`).
+- `GEMINI_API_KEY` is accepted as an alias for `GOOGLE_API_KEY`, matching the
+  name Google's own documentation uses.
+
+### Changed
+
+- Default Google model updated from `gemini-3.5-flash` to `gemini-3.7-flash`
+  (GA, August 2026).
+- LLM backend failures now surface as plain-language messages in the chat
+  panel — high demand / unavailable (503), rate limit or quota (429), rejected
+  API key (401/403), unknown model (404), provider internal errors (5xx), and
+  network failures each get a distinct explanation naming the model and
+  provider. The raw backend error is logged to the console for
+  troubleshooting instead of being shown verbatim.
+- `chaiss-core`: `stream_llm_response` now returns a typed `LlmError`
+  (`user_message` + `detail`) instead of a boxed `dyn Error`; the new
+  `classify_backend_error` helper is public.
+
 ## [0.2.0] - 2026-08-06
 
 ### Added
