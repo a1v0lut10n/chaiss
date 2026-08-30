@@ -399,11 +399,11 @@ impl eframe::App for ChaissApp {
                                 )
                                 .await
                                 {
+                                    // Full backend detail goes to the console for troubleshooting;
+                                    // the chat panel only gets the plain-language summary.
+                                    eprintln!("[LLM error] {}", e.detail);
                                     let _ = tx_clone_2
-                                        .send_async(LlmEvent::SystemMessage(format!(
-                                            "[System Error: {}]",
-                                            e
-                                        )))
+                                        .send_async(LlmEvent::SystemMessage(e.user_message))
                                         .await;
                                 } else {
                                     let _ =
