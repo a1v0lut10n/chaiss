@@ -242,11 +242,19 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                 }
                             });
 
-                            // Natively route explicitly to the new geometric Markdown Caching Engine
+                            // Natively route explicitly to the new geometric Markdown Caching Engine.
+                            // The horizontal ScrollArea contains any content the sanitizer cannot
+                            // wrap (e.g. long code-block lines): it scrolls inside the panel
+                            // instead of inflating the panel's content width and corrupting the
+                            // panel/central-panel boundary.
                             ui.push_id(format!("chat_{}_{}", app.active_game_id.unwrap_or(0), idx), |ui| {
                                 ui.allocate_ui(egui::vec2(panel_width - 24.0, 0.0), |ui| {
-                                    egui_commonmark::CommonMarkViewer::new()
-                                        .show(ui, &mut app.markdown_cache, msg);
+                                    egui::ScrollArea::horizontal()
+                                        .auto_shrink([false, true])
+                                        .show(ui, |ui| {
+                                            egui_commonmark::CommonMarkViewer::new()
+                                                .show(ui, &mut app.markdown_cache, msg);
+                                        });
                                 });
                             });
 
@@ -270,8 +278,12 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         ui.push_id(format!("streaming_{}", app.active_game_id.unwrap_or(0)), |ui| {
                             let sanitized_stream = crate::app::ChaissApp::sanitize_markdown(&app.live_llm_response);
                             ui.allocate_ui(egui::vec2(panel_width - 24.0, 0.0), |ui| {
-                                egui_commonmark::CommonMarkViewer::new()
-                                    .show(ui, &mut app.markdown_cache, &sanitized_stream);
+                                egui::ScrollArea::horizontal()
+                                    .auto_shrink([false, true])
+                                    .show(ui, |ui| {
+                                        egui_commonmark::CommonMarkViewer::new()
+                                            .show(ui, &mut app.markdown_cache, &sanitized_stream);
+                                    });
                             });
                         });
                     }

@@ -127,7 +127,7 @@ impl Default for ChaissApp {
 
 impl ChaissApp {
     pub fn sanitize_markdown(input: &str) -> String {
-        let mut sanitized = strip_math_spans(input.trim_start());
+        let mut sanitized = reflow_tables(&strip_math_spans(input.trim_start()));
         let backtick_count = sanitized.matches("```").count();
         if !backtick_count.is_multiple_of(2) {
             if !sanitized.ends_with('\n') {
@@ -282,7 +282,20 @@ impl eframe::App for ChaissApp {
                         self.algebraic_history = algebraic;
                         self.flip_board = flip_board;
 
-                        self.chat_history = chat;
+                        // Stored history predating a sanitizer rule (e.g. old
+                        // messages containing pipe tables) gets the same
+                        // treatment as freshly streamed responses.
+                        self.chat_history = chat
+                            .into_iter()
+                            .map(|(role, msg)| {
+                                let sanitized = if role == "User" {
+                                    msg
+                                } else {
+                                    Self::sanitize_markdown(&msg)
+                                };
+                                (role, sanitized)
+                            })
+                            .collect();
                         self.live_llm_response.clear();
                         self.prompt_buffer.clear();
                         self.ai_predictive_arrows.clear();
@@ -509,6 +522,86 @@ impl eframe::App for ChaissApp {
         ui::right_panel::draw(ui, self);
         ui::board::draw(ui, self);
     }
+}
+
+/// egui_commonmark lays tables out as a grid whose cells never wrap, so a
+/// pipe table with sentence-long cells forces the chat panel's content
+/// thousands of points wide and corrupts the panel layout. Rewrite each table
+/// as a nested bullet list: one top-level bullet per row (its first cell),
+/// with `header: cell` sub-bullets for the remaining columns. Detection
+/// requires the header + separator line pair, so ordinary prose containing
+/// `|` is left alone; while streaming, the rewrite re-runs over the full
+/// buffer every frame, so rows convert the moment they arrive and the raw
+/// table never reaches the grid renderer.
+fn reflow_tables(input: &str) -> String {
+    // Same fence-alternation trick as `strip_math_spans`: only touch text
+    // outside ``` code blocks, so ASCII diagrams with pipes survive.
+    input
+        .split("```")
+        .enumerate()
+        .map(|(i, seg)| {
+            if i % 2 == 0 {
+                reflow_tables_in_text(seg)
+            } else {
+                seg.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("```")
+}
+
+fn reflow_tables_in_text(seg: &str) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut lines = seg.split('\n').peekable();
+    while let Some(line) = lines.next() {
+        let is_header = is_table_row(line) && lines.peek().is_some_and(|n| is_table_separator(n));
+        if !is_header {
+            out.push(line.to_string());
+            continue;
+        }
+        let headers = split_table_cells(line);
+        lines.next(); // Drop the |---|---| separator line.
+        while lines
+            .peek()
+            .is_some_and(|l| is_table_row(l) && !is_table_separator(l))
+        {
+            let mut cells = split_table_cells(lines.next().unwrap()).into_iter();
+            out.push(format!("- {}", cells.next().unwrap_or_default()));
+            for (header, cell) in headers.iter().skip(1).zip(cells) {
+                out.push(format!("  - {header}: {cell}"));
+            }
+        }
+    }
+    out.join("\n")
+}
+
+fn is_table_row(line: &str) -> bool {
+    line.trim_start().starts_with('|')
+}
+
+/// A delimiter line like `| :--- | ---: |`: only pipes, colons, dashes and
+/// spaces, with at least one dash.
+fn is_table_separator(line: &str) -> bool {
+    let t = line.trim();
+    t.starts_with('|') && t.contains('-') && t.chars().all(|c| matches!(c, '|' | ':' | '-' | ' '))
+}
+
+fn split_table_cells(line: &str) -> Vec<String> {
+    // `\|` is an escaped literal pipe inside a cell, not a cell boundary.
+    const GUARD: char = '\u{1}';
+    let guarded = line.trim().replace("\\|", &GUARD.to_string());
+    let mut cells: Vec<String> = guarded
+        .split('|')
+        .map(|c| c.trim().replace(GUARD, "|"))
+        .collect();
+    // Leading and trailing pipes yield empty edge fragments; drop them.
+    if cells.first().is_some_and(String::is_empty) {
+        cells.remove(0);
+    }
+    if cells.last().is_some_and(String::is_empty) {
+        cells.pop();
+    }
+    cells
 }
 
 /// Gemini wraps chess lines in TeX math (`$$\text{7. d4 \quad exd4}$$`) which
@@ -748,6 +841,48 @@ mod tests {
         assert_eq!(
             ChaissApp::sanitize_markdown(r"$$\text{Nf3 \textbf{best}} \rightarrow \infty$$"),
             "**Nf3 best → ∞**"
+        );
+    }
+
+    #[test]
+    fn reflows_pipe_table_into_bullets() {
+        let input = "Compare:\n\
+            | Vector | `7...Ne4` | `7...Nxd5!` |\n\
+            | :--- | :--- | :--- |\n\
+            | **Material** | Pressure only. | **+1 Pawn** immediately. |\n\
+            | **Toxicity** | No trap. | Wins the Queen. |\n\
+            Verdict follows.";
+        assert_eq!(
+            ChaissApp::sanitize_markdown(input),
+            "Compare:\n\
+             - **Material**\n\
+            \x20 - `7...Ne4`: Pressure only.\n\
+            \x20 - `7...Nxd5!`: **+1 Pawn** immediately.\n\
+             - **Toxicity**\n\
+            \x20 - `7...Ne4`: No trap.\n\
+            \x20 - `7...Nxd5!`: Wins the Queen.\n\
+             Verdict follows."
+        );
+    }
+
+    #[test]
+    fn reflows_partially_streamed_table_row() {
+        let input = "| Vector | A |\n| --- | --- |\n| **Materi";
+        assert_eq!(ChaissApp::sanitize_markdown(input), "- **Materi");
+    }
+
+    #[test]
+    fn leaves_pipes_in_code_and_prose_untouched() {
+        let input = "```\n8 | r n b | k |\n```\nA lone | pipe stays.";
+        assert_eq!(ChaissApp::sanitize_markdown(input), input);
+    }
+
+    #[test]
+    fn respects_escaped_pipes_in_cells() {
+        let input = "| Key | Value |\n| --- | --- |\n| shell | use `a \\| b` |";
+        assert_eq!(
+            ChaissApp::sanitize_markdown(input),
+            "- shell\n  - Value: use `a | b`"
         );
     }
 }
