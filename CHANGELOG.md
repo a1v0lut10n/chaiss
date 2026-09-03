@@ -8,6 +8,20 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-09-03
+
+### Fixed
+
+- LLM responses containing markdown pipe tables no longer corrupt the chat
+  panel layout. egui_commonmark renders tables as a grid whose cells never
+  wrap, so a table with sentence-long cells forced the panel's content far
+  wider than the panel and clipped the text on both sides beyond what the
+  splitter could repair. Tables are now reflowed into nested bullet lists
+  (one bullet per row, header-labelled sub-bullets per column) — applied to
+  streamed responses and to stored chat history on game resume — and each
+  message renders inside a horizontal scroll area so any remaining
+  unwrappable content scrolls within the panel.
+
 ## [0.3.0] - 2026-08-30
 
 ### Added
