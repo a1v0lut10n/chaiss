@@ -8,6 +8,19 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-09-04
+
+### Fixed
+
+- Predictive-move arrows are rendered again when the LLM's predicted
+  continuation involves castling. The matrix parser stripped hyphens before
+  handing each ply to the notation parser, so `O-O`/`O-O-O` (and the digit
+  forms `0-0`/`0-0-0`) were rejected; a castling move at the start of the
+  sequence suppressed all arrows, and one mid-sequence truncated them.
+  Castling notation now survives cleanup, parsing is confined to the matrix
+  line so trailing prose can't swallow the final move, and resuming a game
+  repairs previously affected analyses without any database change.
+
 ## [0.3.1] - 2026-09-03
 
 ### Fixed
