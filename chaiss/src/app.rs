@@ -138,6 +138,38 @@ impl ChaissApp {
         sanitized
     }
 
+    /// Parses the move sequence after a `### PREDICTIVE MATRIX:` marker into
+    /// continuation arrows, simulating each ply forward from `base_state`.
+    /// Cleanup keeps `-` so castling (`O-O`, `0-0`, `O-O-O`) reaches the
+    /// notation parser intact; parsing stops at the first ply that fails,
+    /// keeping the arrows accumulated so far.
+    pub fn parse_predictive_arrows(
+        base_state: &GameState,
+        message: &str,
+    ) -> Vec<(usize, usize, chaiss_core::engine::Color)> {
+        let mut arrows = Vec::new();
+        let Some(matrix_idx) = message.find("### PREDICTIVE MATRIX:") else {
+            return arrows;
+        };
+        let tail = &message[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
+        let sequence = tail.trim_start().lines().next().unwrap_or("");
+
+        let mut sim_state = base_state.clone();
+        for ply in sequence.split(',') {
+            let clean_ply = ply
+                .trim()
+                .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
+            match chaiss_core::engine::notation::parse_algebraic_move(&sim_state, &clean_ply) {
+                Ok((from, to, promo)) => {
+                    arrows.push((from, to, sim_state.active_color));
+                    sim_state.apply_move(from, to, promo);
+                }
+                Err(_) => break,
+            }
+        }
+        arrows
+    }
+
     /// Loads a game's full state off-thread and emits `GameResumed` — the one
     /// path for cold-boot resume, roster clicks, and post-undo resyncs.
     pub fn spawn_game_resume(db: Arc<DbClient>, tx: flume::Sender<DbEvent>, game_id: i64) {
@@ -335,32 +367,8 @@ impl eframe::App for ChaissApp {
                         // Scan for any previously recorded predictive geometry inherently bridging across session bounds!
                         for (role, msg) in self.chat_history.iter().rev() {
                             if role == "Agent" {
-                                if let Some(matrix_idx) = msg.find("### PREDICTIVE MATRIX:") {
-                                    let substring =
-                                        &msg[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
-                                    let sequence: Vec<&str> =
-                                        substring.split(',').map(|s| s.trim()).collect();
-
-                                    let mut sim_state = self.game_state.clone();
-                                    for ply in sequence {
-                                        let clean_ply =
-                                            ply.replace(|c: char| !c.is_alphanumeric(), "");
-                                        if let Ok((from, to, promo)) =
-                                            chaiss_core::engine::notation::parse_algebraic_move(
-                                                &sim_state, &clean_ply,
-                                            )
-                                        {
-                                            self.ai_predictive_arrows.push((
-                                                from,
-                                                to,
-                                                sim_state.active_color,
-                                            ));
-                                            sim_state.apply_move(from, to, promo);
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                }
+                                self.ai_predictive_arrows =
+                                    Self::parse_predictive_arrows(&self.game_state, msg);
                                 break; // Only mathematically parse the definitive *latest* geometrical inference!
                             }
                         }
@@ -467,34 +475,8 @@ impl eframe::App for ChaissApp {
                         self.is_llm_thinking = false;
 
                         // Parse visual geometrical continuations structurally from the inference!
-                        self.ai_predictive_arrows.clear();
-                        if let Some(matrix_idx) = sanitized_response.find("### PREDICTIVE MATRIX:")
-                        {
-                            let substring =
-                                &sanitized_response[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
-                            let sequence: Vec<&str> =
-                                substring.split(',').map(|s| s.trim()).collect();
-
-                            let mut sim_state = self.game_state.clone();
-                            for ply in sequence {
-                                // Strip punctuation mathematically just in case!
-                                let clean_ply = ply.replace(|c: char| !c.is_alphanumeric(), "");
-                                if let Ok((from, to, promo)) =
-                                    chaiss_core::engine::notation::parse_algebraic_move(
-                                        &sim_state, &clean_ply,
-                                    )
-                                {
-                                    self.ai_predictive_arrows.push((
-                                        from,
-                                        to,
-                                        sim_state.active_color,
-                                    ));
-                                    sim_state.apply_move(from, to, promo);
-                                } else {
-                                    break; // Discard sequence securely tracking geometry bounds if parse structurally fails natively
-                                }
-                            }
-                        }
+                        self.ai_predictive_arrows =
+                            Self::parse_predictive_arrows(&self.game_state, &sanitized_response);
 
                         // Serialize AI payload asynchronously tracking dynamic streams cleanly!
                         if let (Some(db), Some(game_id)) =
@@ -884,5 +866,70 @@ mod tests {
             ChaissApp::sanitize_markdown(input),
             "- shell\n  - Value: use `a | b`"
         );
+    }
+
+    use chaiss_core::engine::Color;
+
+    fn play(state: &mut GameState, moves: &[&str]) {
+        for mv in moves {
+            let (from, to, promo) =
+                chaiss_core::engine::notation::parse_algebraic_move(state, mv).unwrap();
+            state.apply_move(from, to, promo);
+        }
+    }
+
+    #[test]
+    fn parses_kingside_castling_in_predictive_matrix() {
+        let mut state = GameState::new();
+        play(&mut state, &["e4", "e5", "Nf3", "Nf6", "Bc4", "Bc5"]);
+        let arrows = ChaissApp::parse_predictive_arrows(
+            &state,
+            "Deep analysis...\n\n### PREDICTIVE MATRIX: O-O, O-O, Re1",
+        );
+        // e1→g1 (White), e8→g8 (Black), then the f1 rook to e1.
+        assert_eq!(
+            arrows,
+            vec![
+                (60, 62, Color::White),
+                (4, 6, Color::Black),
+                (61, 60, Color::White)
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_queenside_and_zero_notation_castling() {
+        let mut state = GameState::new();
+        play(
+            &mut state,
+            &["d4", "d5", "Nc3", "Nc6", "Bf4", "Bf5", "Qd2", "Qd7"],
+        );
+        let arrows =
+            ChaissApp::parse_predictive_arrows(&state, "### PREDICTIVE MATRIX: 0-0-0, O-O-O");
+        assert_eq!(arrows, vec![(60, 58, Color::White), (4, 2, Color::Black)]);
+    }
+
+    #[test]
+    fn keeps_arrows_before_unparseable_ply() {
+        let state = GameState::new();
+        let arrows =
+            ChaissApp::parse_predictive_arrows(&state, "### PREDICTIVE MATRIX: e4, xyzzy, e5");
+        assert_eq!(arrows, vec![(52, 36, Color::White)]);
+    }
+
+    #[test]
+    fn matrix_parsing_ignores_prose_after_matrix_line() {
+        let state = GameState::new();
+        let arrows = ChaissApp::parse_predictive_arrows(
+            &state,
+            "### PREDICTIVE MATRIX: e4, e5\nWhite retains a strong center.",
+        );
+        assert_eq!(arrows.len(), 2);
+    }
+
+    #[test]
+    fn returns_no_arrows_without_matrix_marker() {
+        let state = GameState::new();
+        assert!(ChaissApp::parse_predictive_arrows(&state, "No matrix here.").is_empty());
     }
 }
