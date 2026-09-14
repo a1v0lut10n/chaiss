@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT flip_board FROM games WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "flip_board",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "feffd15ad41cd5edef99ba73e2354fe0755710f56fad692bc3370e2c8b253c31"
+}
