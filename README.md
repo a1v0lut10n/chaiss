@@ -42,6 +42,10 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```bash
    cp .env.example .env
    ```
+   Alternatively (or additionally), use the literate [cola](https://crates.io/crates/colap) configuration: copy `.chaiss.cola.example` to `.chaiss.cola` and edit it — it is a markdown document whose fenced `cola` block *is* the configuration, and it takes precedence over `.env` per key. Every provider with a configured API key appears in the chat pane's model dropdown.
+   ```bash
+   cp .chaiss.cola.example .chaiss.cola
+   ```
 3. **Run Locally:**
    Thanks to the pre-processed `sqlx` cache and auto-executing built-in Rust migrations, the application can be built and initialized purely offline and is 100% cross-platform. Just run:
    ```bash

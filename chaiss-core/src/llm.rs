@@ -159,17 +159,18 @@ fn env_default_target_from(lookup: EnvLookup) -> LlmTarget {
     }
 }
 
-/// All providers with an API key configured in the environment, in a stable
-/// order, each with its resolved model.
+/// All providers with an API key configured — in the `.chaiss.cola`
+/// overlay or the environment (cola wins per key) — in a stable order,
+/// each with its resolved model.
 pub fn configured_targets() -> Vec<LlmTarget> {
-    configured_targets_from(&|key| std::env::var(key).ok())
+    configured_targets_from(&|key| crate::cola_config::config_value(key))
 }
 
 /// The target `LLM_BACKEND` selects (google by default), regardless of
 /// whether its API key is present — the missing key surfaces as a chat
 /// error at request time, exactly as before.
 pub fn env_default_target() -> LlmTarget {
-    env_default_target_from(&|key| std::env::var(key).ok())
+    env_default_target_from(&|key| crate::cola_config::config_value(key))
 }
 
 /// An LLM failure split into what the user should read and what a developer
@@ -315,16 +316,18 @@ pub async fn stream_llm_response(
         LlmProvider::Google => LLMBackend::Google,
     };
 
-    // Google publishes the key as GEMINI_API_KEY in most of its docs; accept both spellings.
-    let api_key = std::env::var(api_key_env)
-        .or_else(|_| {
+    // Keys resolve through the layered lookup (.chaiss.cola overlay, then
+    // env). Google publishes its key as GEMINI_API_KEY in most of its docs;
+    // accept both spellings.
+    let api_key = crate::cola_config::config_value(api_key_env)
+        .or_else(|| {
             if provider == LlmProvider::Google {
-                std::env::var("GEMINI_API_KEY")
+                crate::cola_config::config_value("GEMINI_API_KEY")
             } else {
-                Err(std::env::VarError::NotPresent)
+                None
             }
         })
-        .unwrap_or_else(|_| "TESTKEY".to_string());
+        .unwrap_or_else(|| "TESTKEY".to_string());
 
     // Validate we actually have a key mapped, else error gracefully without crashing!
     // Skip key check for Ollama / Local backends
