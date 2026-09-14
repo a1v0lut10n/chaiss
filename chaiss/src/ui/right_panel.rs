@@ -13,6 +13,22 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             }
 
             ui.heading("LLM Chat & Analysis");
+
+            // Model selector: only shown when more than one backend has a key
+            // configured. Session-scoped; the next request uses the selection.
+            if app.llm_targets.len() > 1 {
+                ui.add_space(2.0);
+                let mut selected = app.selected_llm_index;
+                egui::ComboBox::from_id_salt("llm_model_selector")
+                    .width(ui.available_width() - 8.0)
+                    .selected_text(app.selected_llm_target().to_string())
+                    .show_ui(ui, |ui| {
+                        for (idx, target) in app.llm_targets.iter().enumerate() {
+                            ui.selectable_value(&mut selected, idx, target.to_string());
+                        }
+                    });
+                app.selected_llm_index = selected;
+            }
             ui.separator();
 
             // 1. Reserve exact geometric space at the bottom dynamically using TopBottomPanel!
@@ -96,6 +112,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                                 chat_history: app.chat_history.clone(),
                                                 predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                                 system_role: "Companion".to_string(),
+                                                target: app.selected_llm_target(),
                                             };
                                             let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                         }
@@ -191,6 +208,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                             chat_history: app.chat_history.clone(),
                                             predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                             system_role: "Companion".to_string(),
+                                            target: app.selected_llm_target(),
                                         };
                                         let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                     }
@@ -209,6 +227,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                         chat_history: app.chat_history.clone(),
                                         predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                         system_role: "Companion".to_string(),
+                                        target: app.selected_llm_target(),
                                     };
                                     let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                 }

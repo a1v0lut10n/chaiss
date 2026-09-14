@@ -86,6 +86,13 @@ pub struct ChaissApp {
     // Retry and Auto-Healing Mechanics
     pub retry_count: usize,
     pub active_payload: Option<chaiss_core::llm::LlmPromptPayload>,
+
+    // LLM Backend Selection
+    /// Backends with an API key configured in the environment (never empty:
+    /// falls back to the `LLM_BACKEND` default when no key is set).
+    pub llm_targets: Vec<chaiss_core::llm::LlmTarget>,
+    /// Index into `llm_targets`; session-scoped, defaults from `LLM_BACKEND`.
+    pub selected_llm_index: usize,
 }
 
 impl Default for ChaissApp {
@@ -121,6 +128,8 @@ impl Default for ChaissApp {
             ai_predictive_arrows: Vec::new(),
             retry_count: 0,
             active_payload: None,
+            llm_targets: vec![chaiss_core::llm::env_default_target()],
+            selected_llm_index: 0,
         }
     }
 }
@@ -170,6 +179,14 @@ impl ChaissApp {
         arrows
     }
 
+    /// The provider/model the user has selected for LLM requests.
+    pub fn selected_llm_target(&self) -> chaiss_core::llm::LlmTarget {
+        self.llm_targets
+            .get(self.selected_llm_index)
+            .cloned()
+            .unwrap_or_else(chaiss_core::llm::env_default_target)
+    }
+
     /// Loads a game's full state off-thread and emits `GameResumed` — the one
     /// path for cold-boot resume, roster clicks, and post-undo resyncs.
     pub fn spawn_game_resume(db: Arc<DbClient>, tx: flume::Sender<DbEvent>, game_id: i64) {
@@ -204,6 +221,18 @@ impl ChaissApp {
             db_client: Some(db_client),
             ..Default::default()
         };
+
+        // Offer every backend with a configured key; keep the env-selected
+        // one as the initial choice so single-backend setups behave as before.
+        let configured = chaiss_core::llm::configured_targets();
+        if !configured.is_empty() {
+            let default_provider = chaiss_core::llm::env_default_target().provider;
+            app.selected_llm_index = configured
+                .iter()
+                .position(|t| t.provider == default_provider)
+                .unwrap_or(0);
+            app.llm_targets = configured;
+        }
         // This crucially synthetically trips the `active_game_id.is_none()` resolver logic natively on frame 1!
         let _ = tx.send(DbEvent::SessionsLoaded {
             sessions: initial_sessions.clone(),
