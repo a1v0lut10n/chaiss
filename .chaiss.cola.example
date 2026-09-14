@@ -1,0 +1,56 @@
+# Chaiss LLM configuration — a literate example
+
+This file is both documentation and a working configuration: cola is
+markdown-native, so the fenced `cola` block below is parsed and the
+prose around it is ignored. To use it:
+
+    cp .chaiss.cola.example .chaiss.cola
+
+then replace each `your_key_here` with a real API key (a provider whose
+key is left as the placeholder is treated as not configured). The
+resulting `.chaiss.cola` is gitignored, and it may stay exactly this
+literate — keep the prose, edit the block. One cola quirk: a prose line
+may not *begin* with a backtick, so keep inline code away from the
+start of a line.
+
+## How chaiss reads it
+
+- Every provider below with a real `api_key` appears in the model
+  dropdown of the chat pane (shown when more than one is configured).
+- `backend` names the provider that starts selected at launch:
+  `google`, `openai`, `anthropic`, or `ollama`.
+- `model` overrides that provider's built-in default; omit the field to
+  keep the default (google: `gemini-3.7-flash`, openai: `gpt-6-astra`,
+  anthropic: `claude-3-opus-20240229`).
+- `.chaiss.cola` takes precedence over `.env` **per key**: anything not
+  set here falls back to the `.env` values (`GOOGLE_API_KEY`,
+  `LLM_MODEL_OPENAI`, ...), so both files can coexist.
+
+## The configuration
+
+```cola
+llm:
+    backend: "google"
+    provider plural providers:
+        google:
+            api_key: "your_key_here",
+            model: "gemini-3.7-flash"
+        ;
+        openai:
+            api_key: "your_key_here",
+            model: "gpt-6-astra"
+        ;
+        anthropic:
+            api_key: "your_key_here",
+            model: "claude-3-opus-20240229"
+        ;
+    ;
+;
+```
+
+## Notes
+
+- Ollama needs no API key; it is offered only when `backend` (or
+  `LLM_BACKEND` in `.env`) is set to `ollama`.
+- This example is parsed by a unit test in `chaiss-core`, so it can
+  never drift from what the application actually understands.

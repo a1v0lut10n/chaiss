@@ -14,6 +14,10 @@ categories = ["games", "algorithms", "science"]
 flume = "0.12.0"
 futures = "0.3.32"
 llm = { version = "1.3.7", features = ["google", "openai", "anthropic"] }
+# The workspace's own configuration language (.chaiss.cola); rustemo supplies
+# the Parser trait colap's generated parser is invoked through.
+colap = "0.2"
+rustemo = "0.7.1"
 reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

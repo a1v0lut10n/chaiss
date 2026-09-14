@@ -22,6 +22,7 @@ target
 
 # Local databases and environment config
 .env
+.chaiss.cola
 *.db
 *.db-journal
 *.sqlite
