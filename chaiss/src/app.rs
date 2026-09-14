@@ -20,6 +20,7 @@ pub enum DbEvent {
         chat: Vec<(String, String)>,
         game_id: i64,
         flip_board: bool,
+        last_llm_target: Option<String>,
     },
 }
 
@@ -197,6 +198,7 @@ impl ChaissApp {
                 algebraic.insert(0, "START".to_string());
                 let chat = db.load_chat_history(game_id).await.unwrap_or_default();
                 let flip_board = db.get_flip_board(game_id).await.unwrap_or(false);
+                let last_llm_target = db.get_last_llm_target(game_id).await.ok().flatten();
                 let _ = tx
                     .send_async(DbEvent::GameResumed {
                         history,
@@ -204,6 +206,7 @@ impl ChaissApp {
                         chat,
                         game_id,
                         flip_board,
+                        last_llm_target,
                     })
                     .await;
             }
@@ -337,6 +340,7 @@ impl eframe::App for ChaissApp {
                         chat,
                         game_id,
                         flip_board,
+                        last_llm_target,
                     } => {
                         self.active_game_id = Some(game_id);
                         self.history_stack = history;
@@ -402,6 +406,17 @@ impl eframe::App for ChaissApp {
                             }
                         }
 
+                        // Restore the model that served this game's last request,
+                        // provided it is still configured; otherwise the current
+                        // selection stands.
+                        if let Some(stored) = &last_llm_target {
+                            if let Some(idx) =
+                                chaiss_core::llm::select_stored_target(&self.llm_targets, stored)
+                            {
+                                self.selected_llm_index = idx;
+                            }
+                        }
+
                         println!("Resumed game {} from database.", game_id);
                     }
                 }
@@ -417,13 +432,16 @@ impl eframe::App for ChaissApp {
                             self.chat_history
                                 .push(("User".to_string(), payload.prompt.clone()));
 
-                            // Serialize user payload asynchronously into active match cleanly
+                            // Serialize user payload asynchronously into active match cleanly,
+                            // and remember the target serving it for the game's next resume.
                             if let (Some(db), Some(game_id)) =
                                 (self.db_client.clone(), self.active_game_id)
                             {
                                 let p_clone = payload.prompt.clone();
+                                let target_key = payload.target.storage_key();
                                 tokio::spawn(async move {
                                     let _ = db.log_chat_message(game_id, "User", &p_clone).await;
+                                    let _ = db.set_last_llm_target(game_id, &target_key).await;
                                 });
                             }
                         }

@@ -95,6 +95,31 @@ impl std::fmt::Display for LlmTarget {
     }
 }
 
+impl LlmTarget {
+    /// The stable `provider/model` form persisted per game
+    /// (e.g. `openai/gpt-6-astra`).
+    pub fn storage_key(&self) -> String {
+        format!("{}/{}", self.provider.env_token(), self.model)
+    }
+}
+
+/// Resolves a stored `provider/model` key against the configured targets:
+/// the exact pair wins; a target on the same provider with a different
+/// model is next (a model override changed since the game last ran);
+/// `None` when the provider is no longer configured at all.
+pub fn select_stored_target(targets: &[LlmTarget], stored: &str) -> Option<usize> {
+    let (provider_token, model) = stored.split_once('/')?;
+    if let Some(idx) = targets
+        .iter()
+        .position(|t| t.provider.env_token() == provider_token && t.model == model)
+    {
+        return Some(idx);
+    }
+    targets
+        .iter()
+        .position(|t| t.provider.env_token() == provider_token)
+}
+
 /// An environment lookup, abstracted so resolution stays a pure function and
 /// tests never mutate process-global env vars.
 type EnvLookup<'a> = &'a dyn Fn(&str) -> Option<String>;
@@ -555,6 +580,44 @@ mod tests {
             model: "gpt-6-astra".to_string(),
         };
         assert_eq!(target.to_string(), "gpt-6-astra (OpenAI)");
+    }
+
+    fn target(provider: LlmProvider, model: &str) -> LlmTarget {
+        LlmTarget {
+            provider,
+            model: model.to_string(),
+        }
+    }
+
+    #[test]
+    fn storage_key_round_trips_through_selection() {
+        let targets = vec![
+            target(LlmProvider::Google, "gemini-3.7-flash"),
+            target(LlmProvider::OpenAI, "gpt-6-astra"),
+        ];
+        let stored = targets[1].storage_key();
+        assert_eq!(stored, "openai/gpt-6-astra");
+        assert_eq!(select_stored_target(&targets, &stored), Some(1));
+    }
+
+    #[test]
+    fn stored_target_falls_back_to_same_provider_then_none() {
+        let targets = vec![
+            target(LlmProvider::Google, "gemini-3.7-flash"),
+            target(LlmProvider::OpenAI, "gpt-6-astra"),
+        ];
+        // Model override changed since the game last ran: same provider wins.
+        assert_eq!(
+            select_stored_target(&targets, "openai/gpt-5.6-sol"),
+            Some(1)
+        );
+        // Provider no longer configured: no selection, the default stands.
+        assert_eq!(
+            select_stored_target(&targets, "anthropic/claude-3-opus"),
+            None
+        );
+        // Garbage never selects anything.
+        assert_eq!(select_stored_target(&targets, "not-a-storage-key"), None);
     }
 
     #[test]

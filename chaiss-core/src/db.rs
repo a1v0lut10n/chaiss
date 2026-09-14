@@ -105,6 +105,26 @@ impl DbClient {
         Ok(record.is_some_and(|r| r.flip_board != 0))
     }
 
+    /// Persists the `provider/model` that served the game's most recent LLM
+    /// request, so resuming the game restores that selection.
+    pub async fn set_last_llm_target(&self, game_id: i64, target: &str) -> Result<(), Error> {
+        sqlx::query!(
+            "UPDATE games SET last_llm_target = ? WHERE id = ?",
+            target,
+            game_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_last_llm_target(&self, game_id: i64) -> Result<Option<String>, Error> {
+        let record = sqlx::query!("SELECT last_llm_target FROM games WHERE id = ?", game_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(record.and_then(|r| r.last_llm_target))
+    }
+
     pub async fn delete_game(&self, game_id: i64) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
 
