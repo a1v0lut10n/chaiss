@@ -497,6 +497,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                                 chat_history: app.chat_history.clone(),
                                                 predictive_matrix_hotspots: app.game_state.extract_hottest_predictive_squares(&app.game_state.generate_predictive_matrix()),
                                                 system_role: "Companion".to_string(), // Bound future dynamically!
+                                                target: app.selected_llm_target(),
                                             };
                                             let _ = tx.send(crate::app::LlmEvent::InferenceRequested(payload));
                                         }
