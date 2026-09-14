@@ -344,8 +344,13 @@ pub async fn stream_llm_response(
     let mut builder = LLMBuilder::new()
         .api_key(api_key.clone())
         .model(&model)
-        .max_tokens(8000)
-        .temperature(0.7);
+        .max_tokens(8000);
+
+    // OpenAI reasoning models (GPT-6 Astra and kin) reject any non-default
+    // temperature with a 400; leaving it unset omits the field entirely.
+    if provider != LlmProvider::OpenAI {
+        builder = builder.temperature(0.7);
+    }
 
     if provider == LlmProvider::Google {
         builder = builder
