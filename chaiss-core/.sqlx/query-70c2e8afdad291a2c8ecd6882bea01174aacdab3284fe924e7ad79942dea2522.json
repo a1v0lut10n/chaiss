@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT last_llm_target FROM games WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "last_llm_target",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "70c2e8afdad291a2c8ecd6882bea01174aacdab3284fe924e7ad79942dea2522"
+}
