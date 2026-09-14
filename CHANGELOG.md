@@ -8,6 +8,45 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-14
+
+### Added
+
+- Model selector in the chat pane: every LLM backend with a configured
+  API key appears in a dropdown under the "LLM Chat & Analysis" heading
+  (shown when more than one is configured), and the next request uses
+  the selection. Model resolution per provider: `LLM_MODEL_<PROVIDER>`
+  override → the legacy `LLM_MODEL` (applying only to the `LLM_BACKEND`
+  provider) → the per-provider default.
+- Literate cola configuration: LLM settings can live in `.chaiss.cola`
+  (dotted and gitignored like `.env`), parsed with the workspace's own
+  `colap` crate and taking precedence over `.env` per key. The committed
+  `.chaiss.cola.example` is a markdown document that is itself a valid
+  config — copy it and it stays literate. Placeholder values never mask
+  real `.env` keys.
+- Per-game model persistence: each game remembers the model that served
+  its most recent request (new nullable `last_llm_target` column,
+  migrated automatically) and resuming the game restores that selection
+  when it is still configured.
+- `chaiss-core`: new public `LlmProvider`/`LlmTarget` types,
+  `configured_targets()`, `env_default_target()`,
+  `select_stored_target()`, and the `cola_config` module.
+
+### Changed
+
+- Default OpenAI model updated from `gpt-4-turbo` to `gpt-6-astra`
+  (GPT-6 Astra, September 2026).
+- `chaiss-core`: `LlmPromptPayload` now carries a required `target`
+  field; `stream_llm_response` uses it instead of re-reading
+  `LLM_BACKEND`/`LLM_MODEL` from the environment per request.
+
+### Fixed
+
+- OpenAI requests no longer fail with `400 Bad Request`: reasoning
+  models such as GPT-6 Astra accept only the default temperature, so
+  the temperature parameter is omitted for the OpenAI backend (other
+  backends keep 0.7).
+
 ## [0.3.2] - 2026-09-04
 
 ### Fixed

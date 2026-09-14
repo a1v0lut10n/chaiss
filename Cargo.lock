@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "chaiss"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "chaiss-core",
  "dotenvy",
@@ -1529,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "chaiss-core"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "colap",
  "flume 0.12.0",
