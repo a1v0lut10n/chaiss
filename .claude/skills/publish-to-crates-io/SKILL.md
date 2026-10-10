@@ -44,6 +44,10 @@ SQLX_OFFLINE=true cargo publish -p chaiss
    current. If any SQL query changed, regenerate the cache:
    `DATABASE_URL=sqlite:chaiss.db cargo sqlx prepare -p chaiss-core` (or
    `cargo sqlx prepare --workspace`), then commit the updated `.sqlx/`.
+   The live `chaiss.db` must already carry every migration, or the macros
+   fail with `no such column`; run the app once, or
+   `sqlx migrate run --source chaiss-core/migrations`.
+   Migrations are additive-only (ADR-0001) — never edit a shipped one.
 3. Dry-run both packages before the real publish:
    ```bash
    SQLX_OFFLINE=true cargo publish -p chaiss-core --dry-run

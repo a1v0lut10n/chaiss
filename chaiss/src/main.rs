@@ -35,11 +35,13 @@ async fn main() -> eframe::Result<()> {
 
     // Establish the native global connection pool inside the Tokio runtime!
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://chaiss.db".to_string());
-    let db_client = Arc::new(
-        chaiss_core::db::DbClient::new(&db_url)
-            .await
-            .expect("Failed to securely bind SQLite Database locally!"),
-    );
+    let db_client = match chaiss_core::db::DbClient::new(&db_url).await {
+        Ok(client) => Arc::new(client),
+        Err(err) => {
+            eprintln!("{}", chaiss_core::db::describe_open_failure(&db_url, &err));
+            std::process::exit(1);
+        }
+    };
 
     // Fetch previous mathematical SQL sessions before booting graphical frames synchronously!
     let initial_sessions = db_client
