@@ -8,6 +8,26 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Opening a `chaiss.db` that a newer chaiss already migrated no longer
+  panics with `VersionMissing`: unknown migration-ledger rows are
+  tolerated, since migrations are additive-only (ADR-0001). A migration
+  whose contents differ from the applied one is still refused.
+- A database that cannot be opened now prints which file failed, why,
+  and what to do, instead of the bare "Failed to securely bind SQLite
+  Database locally!" panic.
+
+### Added
+
+- Migration tests in `chaiss-core` against real SQLite files: fresh
+  file, 0.1.x-shaped file upgraded in place, newer-than-this-build
+  file, tampered migration checksum.
+- README developer note on building with `DATABASE_URL` set against an
+  un-migrated database.
+
 ## [0.4.0] - 2026-09-14
 
 ### Added

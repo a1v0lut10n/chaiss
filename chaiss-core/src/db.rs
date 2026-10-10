@@ -1,4 +1,5 @@
 // SQLite sqlx persistence logic
+use sqlx::migrate::MigrateError;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::Error;
 
@@ -15,6 +16,34 @@ pub struct DbClient {
     pool: SqlitePool,
 }
 
+/// Explains a failed [`DbClient::new`] to the person launching the app: which
+/// file, what went wrong, and what to do about it. Migration-ledger failures
+/// get specific guidance, since they mean the file was last touched by a
+/// different chaiss build rather than that anything is corrupt.
+pub fn describe_open_failure(database_url: &str, err: &Error) -> String {
+    let mut text = format!("Could not open the chaiss database `{database_url}`: {err}");
+    if let Error::Migrate(migrate_err) = err {
+        match **migrate_err {
+            MigrateError::VersionMismatch(version) => text.push_str(&format!(
+                "\nMigration {version} was applied to this database by a chaiss build whose \
+                 copy of that migration differs from this one. Open the file with the chaiss \
+                 version that last used it, or back it up and start from a fresh database."
+            )),
+            MigrateError::VersionMissing(version) => text.push_str(&format!(
+                "\nThis database was migrated by a newer chaiss than this one (migration \
+                 {version} is unknown here). Upgrade chaiss (`cargo install chaiss`)."
+            )),
+            MigrateError::Dirty(version) => text.push_str(&format!(
+                "\nMigration {version} did not finish on a previous launch. Restore the file \
+                 from a backup, or move it aside to start from a fresh database."
+            )),
+            _ => {}
+        }
+    }
+    text.push_str("\nSet DATABASE_URL to open a different file.");
+    text
+}
+
 impl DbClient {
     pub async fn new(database_url: &str) -> Result<Self, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
@@ -27,8 +56,15 @@ impl DbClient {
             .connect_with(options)
             .await?;
 
-        // Automatically run migrations on startup natively inside Rust!
-        sqlx::migrate!("./migrations").run(&pool).await?;
+        // Migrations run on every launch. A database that a *newer* chaiss
+        // already migrated carries ledger rows this build does not know about;
+        // ignoring them lets an older build keep opening the file, which is
+        // safe because migrations are additive-only (ADR-0001). A migration
+        // this build does know, but whose checksum differs from the applied
+        // one, is still rejected.
+        let mut migrator = sqlx::migrate!("./migrations");
+        migrator.set_ignore_missing(true);
+        migrator.run(&pool).await?;
 
         Ok(Self { pool })
     }
@@ -291,5 +327,208 @@ impl DbClient {
         }
 
         Ok(chat_history)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::borrow::Cow;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const ROOT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+    /// A SQLite file in a scratch directory of its own, removed on drop.
+    struct ScratchDb {
+        dir: PathBuf,
+        url: String,
+    }
+
+    impl ScratchDb {
+        fn new() -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let dir = std::env::temp_dir().join(format!(
+                "chaiss-core-db-test-{}-{}",
+                std::process::id(),
+                COUNTER.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&dir).expect("create scratch dir");
+            let url = format!("sqlite://{}", dir.join("chaiss.db").display());
+            Self { dir, url }
+        }
+
+        async fn open(&self) -> Result<DbClient, Error> {
+            DbClient::new(&self.url).await
+        }
+
+        async fn pool(&self) -> SqlitePool {
+            use sqlx::sqlite::SqliteConnectOptions;
+            use std::str::FromStr;
+            let options = SqliteConnectOptions::from_str(&self.url)
+                .expect("parse url")
+                .create_if_missing(true);
+            SqlitePool::connect_with(options).await.expect("connect")
+        }
+    }
+
+    impl Drop for ScratchDb {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn shipped_migrator() -> sqlx::migrate::Migrator {
+        sqlx::migrate!("./migrations")
+    }
+
+    async fn applied_versions(pool: &SqlitePool) -> Vec<i64> {
+        sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(pool)
+            .await
+            .expect("read migration ledger")
+    }
+
+    async fn new_game(db: &DbClient) -> i64 {
+        let white = db.get_or_create_player("White").await.expect("white");
+        let black = db.get_or_create_player("Black").await.expect("black");
+        db.create_game("Test", white, black, ROOT_FEN)
+            .await
+            .expect("create game")
+    }
+
+    #[tokio::test]
+    async fn fresh_database_gets_every_shipped_migration() {
+        let scratch = ScratchDb::new();
+        let db = scratch.open().await.expect("open fresh database");
+
+        let expected: Vec<i64> = shipped_migrator().iter().map(|m| m.version).collect();
+        assert_eq!(applied_versions(&db.pool).await, expected);
+
+        let game = new_game(&db).await;
+        db.set_last_llm_target(game, "openai/gpt-6-astra")
+            .await
+            .expect("set target");
+        assert_eq!(
+            db.get_last_llm_target(game).await.expect("get target"),
+            Some("openai/gpt-6-astra".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn database_from_the_first_release_is_upgraded_in_place() {
+        let scratch = ScratchDb::new();
+
+        // Reproduce a 0.1.x file: only the initial migration applied.
+        let init = shipped_migrator()
+            .iter()
+            .next()
+            .expect("initial migration")
+            .clone();
+        let legacy = sqlx::migrate::Migrator {
+            migrations: Cow::Owned(vec![init.clone()]),
+            ..sqlx::migrate::Migrator::DEFAULT
+        };
+        {
+            let pool = scratch.pool().await;
+            legacy.run(&pool).await.expect("apply initial migration");
+            assert_eq!(applied_versions(&pool).await, vec![init.version]);
+            pool.close().await;
+        }
+
+        let db = scratch.open().await.expect("open legacy database");
+        let expected: Vec<i64> = shipped_migrator().iter().map(|m| m.version).collect();
+        assert_eq!(applied_versions(&db.pool).await, expected);
+
+        let game = new_game(&db).await;
+        assert!(!db.get_flip_board(game).await.expect("flip board"));
+        assert_eq!(db.get_last_llm_target(game).await.expect("target"), None);
+    }
+
+    #[tokio::test]
+    async fn database_migrated_by_a_newer_build_still_opens() {
+        let scratch = ScratchDb::new();
+        let future_version: i64 = 99_991_231_000_000;
+        {
+            let db = scratch.open().await.expect("open fresh database");
+            sqlx::query(
+                "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) \
+                 VALUES (?, 'from a newer chaiss', TRUE, X'00', 0)",
+            )
+            .bind(future_version)
+            .execute(&db.pool)
+            .await
+            .expect("insert future ledger row");
+            db.pool.close().await;
+        }
+
+        let db = scratch
+            .open()
+            .await
+            .expect("an older build must tolerate a newer database");
+        assert!(applied_versions(&db.pool).await.contains(&future_version));
+
+        let game = new_game(&db).await;
+        db.set_last_llm_target(game, "google/gemini-3.7-flash")
+            .await
+            .expect("set target");
+        assert_eq!(
+            db.get_last_llm_target(game).await.expect("get target"),
+            Some("google/gemini-3.7-flash".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn modified_migration_is_rejected_with_guidance() {
+        let scratch = ScratchDb::new();
+        let last = shipped_migrator()
+            .iter()
+            .last()
+            .expect("a shipped migration")
+            .version;
+        {
+            let db = scratch.open().await.expect("open fresh database");
+            sqlx::query("UPDATE _sqlx_migrations SET checksum = X'00' WHERE version = ?")
+                .bind(last)
+                .execute(&db.pool)
+                .await
+                .expect("tamper with ledger checksum");
+            db.pool.close().await;
+        }
+
+        let err = match scratch.open().await {
+            Ok(_) => panic!("a modified migration must be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            matches!(&err, Error::Migrate(m) if matches!(**m, MigrateError::VersionMismatch(v) if v == last)),
+            "unexpected error: {err:?}"
+        );
+
+        let text = describe_open_failure(&scratch.url, &err);
+        assert!(text.contains(&scratch.url), "{text}");
+        assert!(text.contains(&last.to_string()), "{text}");
+        assert!(text.contains("differs from this one"), "{text}");
+        assert!(text.contains("DATABASE_URL"), "{text}");
+    }
+
+    #[test]
+    fn describe_open_failure_explains_ledger_states() {
+        let newer = Error::Migrate(Box::new(MigrateError::VersionMissing(42)));
+        let text = describe_open_failure("sqlite://x.db", &newer);
+        assert!(text.contains("newer chaiss"), "{text}");
+        assert!(text.contains("42"), "{text}");
+
+        let dirty = Error::Migrate(Box::new(MigrateError::Dirty(7)));
+        let text = describe_open_failure("sqlite://x.db", &dirty);
+        assert!(text.contains("did not finish"), "{text}");
+
+        let other = Error::PoolClosed;
+        let text = describe_open_failure("sqlite://x.db", &other);
+        assert!(
+            text.starts_with("Could not open the chaiss database `sqlite://x.db`"),
+            "{text}"
+        );
+        assert!(text.contains("DATABASE_URL"), "{text}");
     }
 }
