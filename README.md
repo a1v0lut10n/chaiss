@@ -42,7 +42,7 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```bash
    cp .env.example .env
    ```
-   Alternatively (or additionally), use the literate [cola](https://crates.io/crates/colap) configuration: copy `.chaiss.cola.example` to `.chaiss.cola` and edit it — it is a markdown document whose fenced `cola` block *is* the configuration, and it takes precedence over `.env` per key. Every provider with a configured API key appears in the chat pane's model dropdown.
+   Alternatively (or additionally), use the literate [cola](https://crates.io/crates/colap) configuration: copy `.chaiss.cola.example` to `.chaiss.cola` and edit it — it is a markdown document whose fenced `cola` block *is* the configuration, and it takes precedence over `.env` per key, the database location (`database.url`) included. Every provider with a configured API key appears in the chat pane's model dropdown.
    ```bash
    cp .chaiss.cola.example .chaiss.cola
    ```
@@ -51,7 +51,7 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```bash
    cargo run --release
    ```
-   **Developer note:** when `DATABASE_URL` is set (it is, once you copied `.env.example`), the `sqlx::query!` macros validate every query against that live file *at compile time*, while the migrations only run when the app starts. A fresh clone with an un-migrated `chaiss.db` therefore fails to build with `no such column: ...`. Either apply the migrations once with `sqlx migrate run --source chaiss-core/migrations` (needs `cargo install sqlx-cli`), or build with `SQLX_OFFLINE=true` so the committed `chaiss-core/.sqlx` cache is used instead. `.chaiss.cola` carries LLM settings only and cannot set `DATABASE_URL` or `SQLX_OFFLINE`, so a cola-only setup without `.env` is unaffected and builds against the cache automatically.
+   **Developer note:** when `DATABASE_URL` is set (it is, once you copied `.env.example`), the `sqlx::query!` macros validate every query against that live file *at compile time*, while the migrations only run when the app starts. A fresh clone with an un-migrated `chaiss.db` therefore fails to build with `no such column: ...`. Either apply the migrations once with `sqlx migrate run --source chaiss-core/migrations` (needs `cargo install sqlx-cli`), or build with `SQLX_OFFLINE=true` so the committed `chaiss-core/.sqlx` cache is used instead. `.chaiss.cola` can name the file the running app opens (`database.url`), but it cannot reach the build-time check or set `SQLX_OFFLINE`, so a cola-only setup without `.env` is unaffected and builds against the cache automatically.
 
 ## User Guide
 

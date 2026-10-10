@@ -1,4 +1,5 @@
-//! Cola-based LLM configuration (`.chaiss.cola`).
+//! Cola-based configuration (`.chaiss.cola`): LLM settings and the
+//! database location.
 //!
 //! The workspace's cola configuration language (the `colap` crate) is
 //! markdown-native: plain cola files and markdown documents with fenced
@@ -7,7 +8,7 @@
 //!
 //! The file is read once at startup ([`init`]) into an overlay of the
 //! same logical keys the `.env` configuration uses (`LLM_BACKEND`,
-//! `GOOGLE_API_KEY`, `LLM_MODEL_OPENAI`, ...). Lookups go through
+//! `GOOGLE_API_KEY`, `LLM_MODEL_OPENAI`, `DATABASE_URL`, ...). Lookups go through
 //! [`config_value`]: overlay first, environment fallback — so a
 //! `.chaiss.cola` takes precedence over `.env` per key when present.
 
@@ -95,6 +96,12 @@ pub fn overlay_from_str(content: &str) -> Result<HashMap<String, String>, String
             set(format!("LLM_MODEL_{}", provider.to_uppercase()), model_name);
         }
     }
+    // `database.url` names the file the running app opens. It cannot reach
+    // the build-time sqlx query check, which reads `.env`/the environment
+    // only; an empty value falls through to `.env` like a placeholder key.
+    if let Some(url) = field_at(&model, "database", "url") {
+        set("DATABASE_URL".to_string(), url);
+    }
     Ok(overlay)
 }
 
@@ -107,7 +114,7 @@ pub fn init() {
         Ok(content) => match overlay_from_str(&content) {
             Ok(overlay) => {
                 println!(
-                    "Loaded LLM configuration from {COLA_CONFIG_FILE} ({} keys; takes precedence over .env).",
+                    "Loaded configuration from {COLA_CONFIG_FILE} ({} keys; takes precedence over .env).",
                     overlay.len()
                 );
                 overlay
@@ -163,6 +170,27 @@ mod tests {
         assert_eq!(overlay.get("LLM_MODEL_GOOGLE").unwrap(), "gemini-3.7-flash");
         assert_eq!(overlay.get("LLM_MODEL_OPENAI").unwrap(), "gpt-6-astra");
         assert!(!overlay.contains_key("ANTHROPIC_API_KEY"));
+        // No `database` entity: the key stays unset so .env still applies.
+        assert!(!overlay.contains_key("DATABASE_URL"));
+    }
+
+    #[test]
+    fn database_url_maps_to_logical_key() {
+        let content =
+            format!("{PLAIN}database:\n    url: \"sqlite:///var/lib/chaiss/games.db\"\n;\n");
+        let overlay = overlay_from_str(&content).unwrap();
+        assert_eq!(
+            overlay.get("DATABASE_URL").unwrap(),
+            "sqlite:///var/lib/chaiss/games.db"
+        );
+        assert_eq!(overlay.get("LLM_BACKEND").unwrap(), "openai");
+    }
+
+    #[test]
+    fn empty_database_url_falls_through_to_env() {
+        let content = "database:\n    url: \"\"\n;\n";
+        let overlay = overlay_from_str(content).unwrap();
+        assert!(!overlay.contains_key("DATABASE_URL"));
     }
 
     #[test]
@@ -238,5 +266,8 @@ mod tests {
             overlay.get("LLM_MODEL_OPENAI").unwrap(),
             crate::llm::DEFAULT_OPENAI_MODEL
         );
+        // The example ships an empty database url, so copying it never
+        // masks a DATABASE_URL set in .env.
+        assert!(!overlay.contains_key("DATABASE_URL"));
     }
 }

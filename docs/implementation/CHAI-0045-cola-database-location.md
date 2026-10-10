@@ -3,7 +3,7 @@
 - **Ticket:** CHAI-0045
 - **Branch:** `feature/CHAI-0045-cola-database-location` (follows
   CHAI-0044, PR #60)
-- **Status:** planned
+- **Status:** implemented (PR pending review)
 
 ## Premise
 
@@ -37,9 +37,12 @@ database:
 ## Action items
 
 1. `cola_config::overlay_from_str` maps `database.url` to the logical
-   key `DATABASE_URL`, under the same placeholder rule as API keys (an
-   empty value never enters the overlay; the example may ship the
-   default without un-configuring anything).
+   key `DATABASE_URL`, under the same placeholder rule as API keys: an
+   empty value never enters the overlay. The example therefore ships
+   `url: ""` rather than the default path — shipping `sqlite:chaiss.db`
+   would have masked a `DATABASE_URL` set in `.env` the moment the
+   example was copied, the exact un-configuring the placeholder rule
+   exists to prevent.
 2. `main.rs` resolves the database URL through
    `cola_config::config_value("DATABASE_URL")` with the existing
    `sqlite://chaiss.db` default. `cola_config::init` already runs
@@ -63,12 +66,14 @@ database:
 
 ## Verification checklist
 
-- [ ] fmt / clippy `-D warnings` / `cargo test --workspace` clean.
-- [ ] Manual: with no `.env` and a `.chaiss.cola` naming a scratch
+- [x] fmt / clippy `-D warnings` / `cargo test --workspace` clean.
+- [x] Manual: with no `.env` and a `.chaiss.cola` naming a scratch
       file, the app creates and migrates that file; with both files
       present, the cola value wins; with the cola block absent, `.env`
-      applies.
-- [ ] Plan updated to what was built.
+      applies. Also: a cola url naming a file with a tampered ledger
+      prints the open-failure message, whose hint now names both
+      sources.
+- [x] Plan updated to what was built.
 
 ## Out of scope
 

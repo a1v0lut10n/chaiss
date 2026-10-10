@@ -40,7 +40,10 @@ pub fn describe_open_failure(database_url: &str, err: &Error) -> String {
             _ => {}
         }
     }
-    text.push_str("\nSet DATABASE_URL to open a different file.");
+    text.push_str(
+        "\nSet DATABASE_URL (in .env or the environment) or database.url in .chaiss.cola \
+         to open a different file.",
+    );
     text
 }
 
