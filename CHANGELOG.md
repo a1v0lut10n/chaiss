@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file, 0.1.x-shaped file upgraded in place, newer-than-this-build
   file, tampered migration checksum.
 - README developer note on building with `DATABASE_URL` set against an
-  un-migrated database.
+  un-migrated database, and a matching note in `.chaiss.cola.example`
+  that the cola overlay carries LLM settings only and never the
+  database location.
 
 ## [0.4.0] - 2026-09-14
 

@@ -47,6 +47,14 @@ code bug; it gets a README note.
    or build with `SQLX_OFFLINE=true`; `.env.example` gains the matching
    commented line. Publish skill checklist gains the same reminder.
 5. CHANGELOG `[Unreleased]` entry.
+6. State the `.chaiss.cola` boundary. The cola overlay maps LLM keys
+   only (`cola_config::overlay_from_str`), is consulted at runtime
+   through `config_value`, and cannot carry `DATABASE_URL` or
+   `SQLX_OFFLINE`; the database URL is read from the process
+   environment alone. The compile-time trap therefore exists only via
+   `.env`, and the runtime hardening applies whichever file configures
+   the LLM. `.chaiss.cola.example` and the README now say so, so the
+   two configuration modes cannot be assumed symmetric here by mistake.
 
 ## Verification checklist
 

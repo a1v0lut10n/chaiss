@@ -54,3 +54,9 @@ llm:
   `LLM_BACKEND` in `.env`) is set to `ollama`.
 - This example is parsed by a unit test in `chaiss-core`, so it can
   never drift from what the application actually understands.
+- The database file is not configured here. Chaiss opens `chaiss.db`
+  in the working directory, or the file named by `DATABASE_URL` in
+  `.env` or the process environment; the cola overlay carries LLM
+  settings only. The README developer note about building with
+  `DATABASE_URL` set therefore concerns `.env`, not this file: a
+  cola-only setup builds against the committed sqlx cache.
