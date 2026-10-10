@@ -34,7 +34,10 @@ async fn main() -> eframe::Result<()> {
     chaiss_core::init();
 
     // Establish the native global connection pool inside the Tokio runtime!
-    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://chaiss.db".to_string());
+    // Resolved through the cola overlay (loaded by `cola_config::init` above,
+    // which must keep running before this point), then the environment.
+    let db_url = chaiss_core::cola_config::config_value("DATABASE_URL")
+        .unwrap_or_else(|| "sqlite://chaiss.db".to_string());
     let db_client = match chaiss_core::db::DbClient::new(&db_url).await {
         Ok(client) => Arc::new(client),
         Err(err) => {

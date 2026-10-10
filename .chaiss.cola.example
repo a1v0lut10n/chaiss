@@ -25,6 +25,10 @@ start of a line.
 - `.chaiss.cola` takes precedence over `.env` **per key**: anything not
   set here falls back to the `.env` values (`GOOGLE_API_KEY`,
   `LLM_MODEL_OPENAI`, ...), so both files can coexist.
+- The `database` block names the SQLite file the app opens, as a sqlx
+  URL such as `sqlite:chaiss.db` (the default: the file in the working
+  directory). It maps to `DATABASE_URL`; left empty, as shipped, the
+  `.env` value or the default applies.
 
 ## The configuration
 
@@ -46,6 +50,9 @@ llm:
         ;
     ;
 ;
+database:
+    url: ""
+;
 ```
 
 ## Notes
@@ -54,9 +61,7 @@ llm:
   `LLM_BACKEND` in `.env`) is set to `ollama`.
 - This example is parsed by a unit test in `chaiss-core`, so it can
   never drift from what the application actually understands.
-- The database file is not configured here. Chaiss opens `chaiss.db`
-  in the working directory, or the file named by `DATABASE_URL` in
-  `.env` or the process environment; the cola overlay carries LLM
-  settings only. The README developer note about building with
-  `DATABASE_URL` set therefore concerns `.env`, not this file: a
-  cola-only setup builds against the committed sqlx cache.
+- The database url here governs the running app only. The README
+  developer note about building with `DATABASE_URL` set concerns
+  `.env` and the environment, which the build-time query check reads;
+  a cola-only setup builds against the committed sqlx cache.

@@ -8,6 +8,16 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `.chaiss.cola` can name the database file: a top-level `database`
+  block with a `url` field maps to `DATABASE_URL`, taking precedence
+  over `.env` per key like the LLM settings. Build-time behaviour
+  (`SQLX_OFFLINE`, the macro-time `DATABASE_URL`) stays an `.env`
+  matter.
+
 ## [0.4.1] - 2026-10-10
 
 ### Fixed
