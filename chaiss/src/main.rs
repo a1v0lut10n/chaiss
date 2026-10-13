@@ -25,10 +25,10 @@ Usage: chaiss [OPTION]
 Run without options to open the chess board, reading .env, .chaiss.cola and
 chaiss.db from the current directory.
 
-  --install-desktop-entry  write a launcher (~/.local/share/applications/chaiss.desktop)
-                           and icon for this binary, with the current directory as
-                           its working directory; on Wayland this is what gives the
-                           window its icon
+  --install-desktop-entry  Linux only: write a launcher
+                           (~/.local/share/applications/chaiss.desktop) and icon for
+                           this binary, with the current directory as its working
+                           directory; on Wayland this is what gives the window its icon
   -V, --version            print the version
   -h, --help               print this help
 ";
@@ -36,6 +36,13 @@ chaiss.db from the current directory.
 /// Writes the desktop entry and icon for this executable, working in the
 /// current directory. Exits the process either way, since nothing else runs.
 fn install_desktop_entry() -> ! {
+    if !cfg!(target_os = "linux") {
+        eprintln!(
+            "--install-desktop-entry applies to Linux desktops only; on macOS and Windows \
+             the embedded icon is set natively and needs no launcher file."
+        );
+        std::process::exit(2)
+    }
     let result = (|| -> std::io::Result<desktop_entry::Installed> {
         let exe = std::env::current_exe()?;
         let workdir = std::env::current_dir()?;

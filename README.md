@@ -62,7 +62,7 @@ cd /path/to/your/chess/directory   # where .env, .chaiss.cola and chaiss.db live
 chaiss --install-desktop-entry
 ```
 
-That writes `~/.local/share/applications/chaiss.desktop` (pointing at this binary, with that directory as the working directory) and `~/.local/share/icons/hicolor/scalable/apps/chaiss.svg`. Run it once per binary location; `cargo install` upgrades keep the path, so no re-run is needed. On X11, Windows and macOS the embedded icon continues to work without the entry. winit 0.30 drops window icons on Wayland; winit 0.31 (in beta) implements the `xdg-toplevel-icon` protocol, which Plasma 6.3+ supports, so once eframe moves to it the embedded icon will reach Plasma directly, while GNOME still needs the desktop entry.
+That writes `~/.local/share/applications/chaiss.desktop` (pointing at this binary, with that directory as the working directory) and `~/.local/share/icons/hicolor/scalable/apps/chaiss.svg`. Run it once per binary location; `cargo install` upgrades keep the path, so no re-run is needed. The flag is Linux-only and refuses to run elsewhere: on X11, Windows and macOS the embedded icon continues to work without the entry, set natively by eframe. winit 0.30 drops window icons on Wayland; winit 0.31 (in beta) implements the `xdg-toplevel-icon` protocol, which Plasma 6.3+ supports, so once eframe moves to it the embedded icon will reach Plasma directly, while GNOME still needs the desktop entry.
 
 ## User Guide
 
