@@ -8,7 +8,7 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-13
 
 ### Added
 
@@ -16,12 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   block with a `url` field maps to `DATABASE_URL`, taking precedence
   over `.env` per key like the LLM settings. Build-time behaviour
   (`SQLX_OFFLINE`, the macro-time `DATABASE_URL`) stays an `.env`
-  matter.
-
-## [Unreleased]
-
-### Added
-
+  matter (CHAI-0045).
 - `chaiss --install-desktop-entry` writes a freedesktop launcher and the
   logo into the user's XDG data directory, and the window now carries the
   Wayland app id `chaiss` to match it. On Wayland sessions this is what
