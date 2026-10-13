@@ -17,11 +17,11 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
 
 ## Key Features
 
-- **Heat Map Targeting:** A unique visualization that highlights the targeted ranges of chess pieces. Overlapping attacks increase the intensity of the square's color while remaining distinctly distinguishable from the underlying light/dark squares.
-- **LLM Integration:** Talk and analyze games with advanced AI models (like Gemini and ChatGPT) directly in the app. Utilizing the `llm` crate, interactions are configurable and context-aware.
-- **Game & Player Persistence:** Name your players and your games. Relying on SQLite and `sqlx`, Chaiss allows you to save, load, and manage a library of your past chess explorations easily.
-- **Dual Control Schemes:** Seamlessly move pieces via Mouse/Touch, or use intuitive keyboard-based algebraic notation highlighting.
-- **Exploration Mode:** A sandboxed mode offering robust undo/redo capabilities to test "what if" scenarios before instantly reverting to the live game state.
+- **Heat Map Overlays:** Coloured rings on every square show which pieces attack it, blue for White and red for Black, growing stronger with each additional attacker. The *First-Order Heat* overlay shows the position as it stands; *Predictive Matrix* sums the attacks over every legal reply, so the squares that matter one move ahead light up.
+- **LLM Integration:** Analyse games with Google, OpenAI, Anthropic or Ollama models directly in the app, switching model per game from the chat pane. Every request carries the exact position (FEN, board diagram, move list and chat history), and each reply ends in a predicted continuation that Chaiss draws as arrows on the board. Built on the `llm` crate.
+- **Game & Player Persistence:** Name your players and your games. Moves, chat history, board orientation and the model last used are saved to SQLite with `sqlx` as you go, and resume with one click.
+- **Dual Control Schemes:** Move pieces with the mouse, or type standard algebraic notation (`Nf3`, `O-O`, `Bxf7+`) into the chat box. Paste a PGN to replay a whole game.
+- **Exploration Mode:** Step back through the game and try what-if lines on the board without touching the saved game, then return to the live position in one click.
 
 ## Project Structure
 
@@ -42,7 +42,7 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```bash
    cp .env.example .env
    ```
-   Alternatively (or additionally), use the literate [cola](https://crates.io/crates/colap) configuration: copy `.chaiss.cola.example` to `.chaiss.cola` and edit it — it is a markdown document whose fenced `cola` block *is* the configuration, and it takes precedence over `.env` per key, the database location (`database.url`) included. Every provider with a configured API key appears in the chat pane's model dropdown.
+   Alternatively (or additionally), use the literate [cola](https://crates.io/crates/colap) configuration: copy `.chaiss.cola.example` to `.chaiss.cola` and edit it — it is a markdown document whose fenced `cola` block *is* the configuration, and it takes precedence over `.env` per key, the database location (`database.url`) included. Every provider with a configured API key is offered in the chat pane's model dropdown, which appears once more than one provider is configured; Ollama needs no key and is offered when it is the configured backend.
    ```bash
    cp .chaiss.cola.example .chaiss.cola
    ```
@@ -66,11 +66,15 @@ That writes `~/.local/share/applications/chaiss.desktop` (pointing at this binar
 
 ## User Guide
 
-For detailed instructions on how to use the dual-control mechanisms, launch a match, parse raw PGN text directly into the structural Egui modules, and securely interrogate the AI backend, please see the explicit **[Chaiss User Guide](docs/user_guide.md)**.
+<p align="center">
+  <a href="docs/user_guide.md"><img src="static/screenshots/overview-800.png" alt="Chaiss showing the final position of Deep Blue vs Kasparov, 1996, game 1" width="640"></a>
+</p>
+
+The **[Chaiss User Guide](docs/user_guide.md)** walks through the interface shown above: creating and resuming games, loading a PGN, moving by mouse or by notation, the heat map and predictive matrix overlays, talking to the model and reading its predicted arrows, and exploring what-if lines without touching the saved game.
 
 ## UI Inspection via MCP
 
-Chaiss is built on `egui` 0.35, which ships an **inspection protocol**
+Chaiss is built on `egui` 0.36, which ships an **inspection protocol**
 (`egui_inspection`) that exposes a running app's live UI (AccessKit) tree over a
 local port. Chaiss wires this to the [`egui-mcp`](https://github.com/rerun-io/kittest_inspector)
 server so an AI agent — e.g. Claude Code — can **read and drive the running UI**

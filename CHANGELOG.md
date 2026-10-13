@@ -8,6 +8,16 @@ which are released in lockstep.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- User guide rewritten against the 0.5.0 interface with fresh
+  screenshots taken through the egui inspection session (Deep Blue vs
+  Kasparov 1996, game 1, at 37.Rxh7+); README feature list, model
+  dropdown note and egui version corrected, and the User Guide section
+  now carries a linked overview screenshot (CHAI-0047).
+
 ## [0.5.0] - 2026-10-13
 
 ### Added
