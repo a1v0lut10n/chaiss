@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`SQLX_OFFLINE`, the macro-time `DATABASE_URL`) stays an `.env`
   matter.
 
+## [Unreleased]
+
+### Added
+
+- `chaiss --install-desktop-entry` writes a freedesktop launcher and the
+  logo into the user's XDG data directory, and the window now carries the
+  Wayland app id `chaiss` to match it. On Wayland sessions this is what
+  gives the task bar its icon; winit 0.30 cannot deliver the embedded one
+  there (CHAI-0046). Also `--help` and `--version`.
+
 ## [0.4.1] - 2026-10-10
 
 ### Fixed

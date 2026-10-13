@@ -53,6 +53,17 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```
    **Developer note:** when `DATABASE_URL` is set (it is, once you copied `.env.example`), the `sqlx::query!` macros validate every query against that live file *at compile time*, while the migrations only run when the app starts. A fresh clone with an un-migrated `chaiss.db` therefore fails to build with `no such column: ...`. Either apply the migrations once with `sqlx migrate run --source chaiss-core/migrations` (needs `cargo install sqlx-cli`), or build with `SQLX_OFFLINE=true` so the committed `chaiss-core/.sqlx` cache is used instead. `.chaiss.cola` can name the file the running app opens (`database.url`), but it cannot reach the build-time check or set `SQLX_OFFLINE`, so a cola-only setup without `.env` is unaffected and builds against the cache automatically.
 
+## Desktop integration (the window icon on Wayland)
+
+On a Wayland session (the default on Ubuntu 26.04 with either KDE Plasma or GNOME), the compositor does not take the window icon from the application; it looks up the desktop entry whose id matches the window's app id and uses that entry's icon. Without one, Plasma shows its generic Wayland icon (a white W on yellow) and GNOME a blank one. Chaiss sets the app id `chaiss`, and installs the matching entry and icon on request:
+
+```bash
+cd /path/to/your/chess/directory   # where .env, .chaiss.cola and chaiss.db live
+chaiss --install-desktop-entry
+```
+
+That writes `~/.local/share/applications/chaiss.desktop` (pointing at this binary, with that directory as the working directory) and `~/.local/share/icons/hicolor/scalable/apps/chaiss.svg`. Run it once per binary location; `cargo install` upgrades keep the path, so no re-run is needed. The flag is Linux-only and refuses to run elsewhere: on X11, Windows and macOS the embedded icon continues to work without the entry, set natively by eframe. winit 0.30 drops window icons on Wayland; winit 0.31 (in beta) implements the `xdg-toplevel-icon` protocol, which Plasma 6.3+ supports, so once eframe moves to it the embedded icon will reach Plasma directly, while GNOME still needs the desktop entry.
+
 ## User Guide
 
 For detailed instructions on how to use the dual-control mechanisms, launch a match, parse raw PGN text directly into the structural Egui modules, and securely interrogate the AI backend, please see the explicit **[Chaiss User Guide](docs/user_guide.md)**.
