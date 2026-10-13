@@ -2,7 +2,7 @@ use crate::ui::theme;
 use eframe::egui;
 
 pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
-    // egui 0.35 shows floating windows against the Context; grab an owned handle
+    // egui shows floating windows against the Context; grab an owned handle
     // (cheap Arc clone) before the panel borrows `ui` mutably.
     let ctx = ui.ctx().clone();
 
