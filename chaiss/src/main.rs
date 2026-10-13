@@ -1,6 +1,7 @@
 use eframe::egui;
 
 mod app;
+mod desktop_entry;
 mod ui;
 
 use app::ChaissApp;
@@ -18,8 +19,69 @@ fn load_icon() -> Option<Arc<egui::IconData>> {
     }))
 }
 
+const USAGE: &str = "\
+Usage: chaiss [OPTION]
+
+Run without options to open the chess board, reading .env, .chaiss.cola and
+chaiss.db from the current directory.
+
+  --install-desktop-entry  write a launcher (~/.local/share/applications/chaiss.desktop)
+                           and icon for this binary, with the current directory as
+                           its working directory; on Wayland this is what gives the
+                           window its icon
+  -V, --version            print the version
+  -h, --help               print this help
+";
+
+/// Writes the desktop entry and icon for this executable, working in the
+/// current directory. Exits the process either way, since nothing else runs.
+fn install_desktop_entry() -> ! {
+    let result = (|| -> std::io::Result<desktop_entry::Installed> {
+        let exe = std::env::current_exe()?;
+        let workdir = std::env::current_dir()?;
+        let data_home = desktop_entry::data_home().ok_or_else(|| {
+            std::io::Error::other(
+                "neither XDG_DATA_HOME nor HOME is set; cannot locate the data directory",
+            )
+        })?;
+        desktop_entry::install(&data_home, &exe, &workdir)
+    })();
+    match result {
+        Ok(installed) => {
+            println!(
+                "Wrote {}\nWrote {}\nLaunchers pick the entry up on their own; if the icon does not \
+                 appear, run `update-desktop-database` on that applications directory.",
+                installed.desktop_file.display(),
+                installed.icon_file.display()
+            );
+            std::process::exit(0)
+        }
+        Err(err) => {
+            eprintln!("Could not install the desktop entry: {err}");
+            std::process::exit(1)
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> eframe::Result<()> {
+    match std::env::args().nth(1).as_deref() {
+        None => {}
+        Some("--install-desktop-entry") => install_desktop_entry(),
+        Some("-V" | "--version") => {
+            println!("chaiss {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        Some("-h" | "--help") => {
+            print!("{USAGE}");
+            return Ok(());
+        }
+        Some(other) => {
+            eprint!("chaiss: unrecognised option `{other}`\n\n{USAGE}");
+            std::process::exit(2)
+        }
+    }
+
     // Explicitly load .env contents mathematically into the OS environment vector array!
     dotenvy::dotenv().ok();
     // rustemo (colap's parser runtime) traces every parse step to stderr in
@@ -52,7 +114,12 @@ async fn main() -> eframe::Result<()> {
         .await
         .unwrap_or_else(|_| Vec::new());
 
+    // The app id is what Wayland compositors match against the installed
+    // `chaiss.desktop` (see `desktop_entry`) to find the window icon; the
+    // embedded icon below serves X11, Windows and macOS, where winit 0.30
+    // can hand it to the window system directly.
     let mut viewport = egui::ViewportBuilder::default()
+        .with_app_id(desktop_entry::APP_ID)
         .with_inner_size([1200.0, 800.0])
         .with_min_inner_size([800.0, 600.0]);
 
