@@ -21,7 +21,7 @@ pub struct LlmPromptPayload {
 
 /// Default model per backend when no `LLM_MODEL`/`LLM_MODEL_<PROVIDER>`
 /// override is set.
-pub const DEFAULT_GOOGLE_MODEL: &str = "gemini-3.7-flash";
+pub const DEFAULT_GOOGLE_MODEL: &str = "gemini-3.8-flash";
 pub const DEFAULT_OPENAI_MODEL: &str = "gpt-6-astra";
 pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-3-opus-20240229";
 pub const DEFAULT_OLLAMA_MODEL: &str = "llama3";
@@ -268,6 +268,11 @@ pub fn classify_backend_error(provider: &str, model: &str, raw: impl Into<String
         || lower.contains("unavailable")
         || lower.contains("high demand")
         || lower.contains("overloaded");
+    // Google answers a depleted prepaid balance with 402 and the same
+    // RESOURCE_EXHAUSTED status it uses for quota, so test this first.
+    let billing = status == Some(402)
+        || lower.contains("credits are depleted")
+        || lower.contains("payment required");
     let rate_limited = status == Some(429)
         || lower.contains("resource_exhausted")
         || lower.contains("rate limit")
@@ -289,6 +294,12 @@ pub fn classify_backend_error(provider: &str, model: &str, raw: impl Into<String
         format!(
             "The AI backend {target} is temporarily unavailable due to high demand. \
              Spikes are usually short-lived — please try again in a moment."
+        )
+    } else if billing {
+        format!(
+            "The AI backend {target} refused the request because the account's prepaid \
+             credits are depleted or billing is not set up. Please top up or check billing \
+             in the provider's console, then retry."
         )
     } else if rate_limited {
         format!(
@@ -482,6 +493,10 @@ mod tests {
 
     const GEMINI_503: &str = "Chat Stream err: Response Format Error: OpenAI API returned error status: 503 Service Unavailable. Raw response: [{ \"error\": { \"code\": 503, \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\", \"status\": \"UNAVAILABLE\" } } ]";
 
+    // Verbatim body Google returned on 2026-10-16 for a key whose prepaid
+    // balance had run out; note it reuses the quota status code.
+    const GEMINI_402: &str = "Chat Stream err: Response Format Error: OpenAI API returned error status: 402 Payment Required. Raw response: [{ \"error\": { \"code\": 402, \"message\": \"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \", \"status\": \"RESOURCE_EXHAUSTED\" } } ]";
+
     fn env(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         pairs
             .iter()
@@ -592,7 +607,7 @@ mod tests {
     #[test]
     fn storage_key_round_trips_through_selection() {
         let targets = vec![
-            target(LlmProvider::Google, "gemini-3.7-flash"),
+            target(LlmProvider::Google, "gemini-3.8-flash"),
             target(LlmProvider::OpenAI, "gpt-6-astra"),
         ];
         let stored = targets[1].storage_key();
@@ -603,7 +618,7 @@ mod tests {
     #[test]
     fn stored_target_falls_back_to_same_provider_then_none() {
         let targets = vec![
-            target(LlmProvider::Google, "gemini-3.7-flash"),
+            target(LlmProvider::Google, "gemini-3.8-flash"),
             target(LlmProvider::OpenAI, "gpt-6-astra"),
         ];
         // Model override changed since the game last ran: same provider wins.
@@ -633,12 +648,24 @@ mod tests {
 
     #[test]
     fn gemini_high_demand_maps_to_friendly_message_and_keeps_detail() {
-        let err = classify_backend_error("Google", "gemini-3.7-flash", GEMINI_503);
+        let err = classify_backend_error("Google", "gemini-3.8-flash", GEMINI_503);
         assert!(err.user_message.contains("temporarily unavailable"));
-        assert!(err.user_message.contains("gemini-3.7-flash (Google)"));
+        assert!(err.user_message.contains("gemini-3.8-flash (Google)"));
         assert!(!err.user_message.contains("503"));
         assert_eq!(err.detail, GEMINI_503);
         assert_eq!(err.to_string(), err.user_message);
+    }
+
+    #[test]
+    fn gemini_depleted_credits_is_billing_not_rate_limit() {
+        let err = classify_backend_error("Google", "gemini-3.8-flash", GEMINI_402);
+        assert!(err.user_message.contains("prepaid"));
+        assert!(err.user_message.contains("gemini-3.8-flash (Google)"));
+        assert!(!err.user_message.contains("rate-limiting"));
+        assert_eq!(err.detail, GEMINI_402);
+        // The status alone is enough even without Google's wording.
+        let m = classify_backend_error("Google", "m", "error status: 402 Payment Required");
+        assert!(m.user_message.contains("prepaid"));
     }
 
     #[test]

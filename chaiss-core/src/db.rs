@@ -472,12 +472,12 @@ mod tests {
         assert!(applied_versions(&db.pool).await.contains(&future_version));
 
         let game = new_game(&db).await;
-        db.set_last_llm_target(game, "google/gemini-3.7-flash")
+        db.set_last_llm_target(game, "google/gemini-3.8-flash")
             .await
             .expect("set target");
         assert_eq!(
             db.get_last_llm_target(game).await.expect("get target"),
-            Some("google/gemini-3.7-flash".to_string())
+            Some("google/gemini-3.8-flash".to_string())
         );
     }
 

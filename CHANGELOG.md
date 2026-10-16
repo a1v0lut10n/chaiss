@@ -12,11 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Default Google model updated from `gemini-3.7-flash` to `gemini-3.8-flash`
+  (CHAI-0048). A `model` set in `.chaiss.cola` or `LLM_MODEL_GOOGLE` in
+  `.env` still overrides it, so an explicit `gemini-3.7-flash` there keeps
+  the old model.
 - User guide rewritten against the 0.5.0 interface with fresh
   screenshots taken through the egui inspection session (Deep Blue vs
   Kasparov 1996, game 1, at 37.Rxh7+); README feature list, model
   dropdown note and egui version corrected, and the User Guide section
   now carries a linked overview screenshot (CHAI-0047).
+
+### Fixed
+
+- A depleted prepaid balance (HTTP 402, which Google reports with the same
+  `RESOURCE_EXHAUSTED` status as a quota hit) is now reported in the chat
+  pane as a billing problem instead of rate limiting (CHAI-0048).
 
 ## [0.5.0] - 2026-10-13
 

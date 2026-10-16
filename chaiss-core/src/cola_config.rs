@@ -151,7 +151,7 @@ mod tests {
     provider plural providers:
         google:
             api_key: "g-key",
-            model: "gemini-3.7-flash"
+            model: "gemini-3.8-flash"
         ;
         openai:
             api_key: "o-key",
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(overlay.get("LLM_BACKEND").unwrap(), "openai");
         assert_eq!(overlay.get("GOOGLE_API_KEY").unwrap(), "g-key");
         assert_eq!(overlay.get("OPENAI_API_KEY").unwrap(), "o-key");
-        assert_eq!(overlay.get("LLM_MODEL_GOOGLE").unwrap(), "gemini-3.7-flash");
+        assert_eq!(overlay.get("LLM_MODEL_GOOGLE").unwrap(), "gemini-3.8-flash");
         assert_eq!(overlay.get("LLM_MODEL_OPENAI").unwrap(), "gpt-6-astra");
         assert!(!overlay.contains_key("ANTHROPIC_API_KEY"));
         // No `database` entity: the key stays unset so .env still applies.
