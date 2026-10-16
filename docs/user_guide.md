@@ -125,7 +125,7 @@ model, see below, and are drawn in all three settings.
 
 **Choosing a model.** When more than one provider is configured, a
 dropdown at the top of the chat pane lists every available model as
-`model (Provider)`, for example `gemini-3.7-flash (Google)` or
+`model (Provider)`, for example `gemini-3.8-flash (Google)` or
 `gpt-6-astra (OpenAI)`. The model used for a game's last request is
 remembered and restored when you resume that game. Configuration lives in
 `.env` or `.chaiss.cola`; see the README.

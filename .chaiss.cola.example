@@ -20,7 +20,7 @@ start of a line.
 - `backend` names the provider that starts selected at launch:
   `google`, `openai`, `anthropic`, or `ollama`.
 - `model` overrides that provider's built-in default; omit the field to
-  keep the default (google: `gemini-3.7-flash`, openai: `gpt-6-astra`,
+  keep the default (google: `gemini-3.8-flash`, openai: `gpt-6-astra`,
   anthropic: `claude-3-opus-20240229`).
 - `.chaiss.cola` takes precedence over `.env` **per key**: anything not
   set here falls back to the `.env` values (`GOOGLE_API_KEY`,
@@ -38,7 +38,7 @@ llm:
     provider plural providers:
         google:
             api_key: "your_key_here",
-            model: "gemini-3.7-flash"
+            model: "gemini-3.8-flash"
         ;
         openai:
             api_key: "your_key_here",
