@@ -14,8 +14,10 @@ crates shipped the same way.
 
 ## Action items
 
-1. `LICENSE`: the canonical Apache License 2.0 text from apache.org,
-   verbatim, appendix included.
+1. `LICENSE`: the canonical Apache License 2.0 text from apache.org, with
+   the appendix's `Copyright [yyyy] [name of copyright owner]` placeholder
+   expanded to `Copyright 2026 Hans Van Wesenbeeck`; everything else
+   unchanged.
 2. `NOTICE`: project name and "Copyright 2026 Hans Van Wesenbeeck" (the
    first commit is from March 2026).
 3. README: a License section with the standard boilerplate notice and the

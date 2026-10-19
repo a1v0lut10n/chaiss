@@ -14,7 +14,9 @@ advertised a license whose text and attribution shipped nowhere.
 ## Details
 
 Adopted Apache 2.0 explicitly: the canonical text from apache.org as
-`LICENSE` (checksum-compared with the copy serde ships), a `NOTICE`
+`LICENSE` (checksum-compared with the copy serde ships, then the
+appendix's copyright placeholder expanded with the holder's details after
+review caught it still in template form), a `NOTICE`
 naming Hans Van Wesenbeeck as copyright holder for 2026, and a License
 section in the README carrying the boilerplate notice and the Section 5
 contribution clause. Cargo 1.99 does not include a workspace-root
