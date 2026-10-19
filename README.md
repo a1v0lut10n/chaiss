@@ -118,3 +118,20 @@ For a detailed breakdown of the features, architectural choices, and upcoming ro
 - Thanks to **graniet** (@graniet) for the [`llm`](https://github.com/graniet/llm) crate, whose unified API layer connects Chaiss to frontier models like Gemini, OpenAI, and Anthropic.
 - Thanks to [`flume`](https://github.com/zesterer/flume) for its cloneable MPMC channels, which fit the immediate-mode model well: worker threads send messages and request a repaint, and the UI consumes whatever is ready on the next frame via non-blocking receives.
 - Thanks to the **Google DeepMind** team and the **Gemini 3.1 Pro** model, used via the **Antigravity IDE** during development.
+
+## License
+
+Copyright 2026 Hans Van Wesenbeeck.
+
+Chaiss and chaiss-core are licensed under the Apache License, Version 2.0
+(the "License"); you may not use this project except in compliance with
+the License. You may obtain a copy of the License at
+<http://www.apache.org/licenses/LICENSE-2.0>, and the full text is in the
+[`LICENSE`](LICENSE) file. Unless required by applicable law or agreed to
+in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+or implied.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in the work by you shall be licensed as above,
+without any additional terms or conditions (Section 5 of the License).
