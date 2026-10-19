@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `LICENSE` (Apache License 2.0) and `NOTICE` naming Hans Van Wesenbeeck as
+  copyright holder, with a License section in the README. The Cargo
+  manifests had declared `Apache-2.0` since the first publish, but the
+  text and the attribution were missing from both the repository and the
+  packaged crates; each crate directory now symlinks both files so the
+  next publish ships them (CHAI-0049).
+
 ### Changed
 
 - Default Google model updated from `gemini-3.7-flash` to `gemini-3.8-flash`
