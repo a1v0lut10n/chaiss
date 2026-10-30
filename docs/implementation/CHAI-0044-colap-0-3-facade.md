@@ -2,7 +2,8 @@
 
 - **Ticket:** CHAI-0044
 - **Branch:** `chore/CHAI-0044-colap-0-3-facade`
-- **Status:** proposed (blocked on the colap 0.3.0 release)
+- **Status:** proposed (colap 0.3.0 was published 2026-10-30; see the
+  update below before executing)
 - **Origin:** colap COLA-0001 (a1v0lut10n/colap PR #18), which moved
   markdown handling out of colap's grammar into a fence scanner and
   added a parsing facade. It is the fix for the adoption pains this
@@ -56,3 +57,28 @@ In colap 0.3:
 - [ ] `cargo build --workspace`, `cargo test -p chaiss-core` pass on
       colap 0.3 with no `rustemo` in `chaiss-core/Cargo.toml`.
 - [ ] A deliberately broken `.chaiss.cola` logs `path:line:col`.
+
+## Update 2026-10-31: against the published API
+
+colap 0.3.0 is on crates.io, and colap PR #26 (COLA-0009, comments)
+follows it on `main` as the unreleased 0.4.0. Reread against both, the
+plan above holds with two additions:
+
+- **`value_text` no longer compiles as written.** `ConfigValue` gained
+  `Symbol(String)`, `Reference(String)` and `List(Vec<ConfigValue>)` in
+  0.3.0, so the four-arm match in `cola_config.rs` needs arms for them.
+  `Symbol` and `Reference` carry the text the overlay wants (a bare
+  `backend: ollama` reads as a symbol now, which is the natural way to
+  write it); a `List` has no place in a `.env`-style overlay, so join
+  its scalars with a space or ignore it, and say which in the code.
+  Strings now arrive decoded, so `\"` in a value is one character.
+- **Stay on the facade, not `build_config_model`.** Item 2 already
+  says so; the reason grew: in 0.4.0 the builder needs the block text
+  to attach `//` comments, and `build_config_model(&ast)` builds a
+  model without them. chaiss only reads values, so it would not notice,
+  but `colap::parse_str` is the call that stays correct either way.
+  `//` comments are then legal in `.chaiss.cola`, worth one line in
+  `.chaiss.cola.example`.
+
+Pin `colap = "0.3"` now; nothing here depends on 0.4.0, and the facade
+signatures are unchanged by it.
