@@ -1,3 +1,4 @@
+pub mod line_check;
 pub mod models;
 pub mod movement;
 pub mod notation;

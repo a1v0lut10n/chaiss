@@ -256,6 +256,8 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                                     ui.label(egui::RichText::new("👤 User: ").color(egui::Color32::LIGHT_BLUE).strong());
                                 } else if role == "Agent" {
                                     ui.label(egui::RichText::new("🤖 Agent: ").color(egui::Color32::LIGHT_GREEN).strong());
+                                } else if role == "Engine" {
+                                    ui.label(egui::RichText::new("⚙ Engine: ").color(egui::Color32::GOLD).strong());
                                 } else {
                                     ui.label(egui::RichText::new("⚠️ System: ").color(egui::Color32::from_rgb(255, 140, 0)).strong());
                                 }
@@ -285,7 +287,16 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         ui.horizontal_wrapped(|ui| {
                             ui.spinner();
                             ui.add_space(5.0);
-                            ui.label(egui::RichText::new("🤖 Agent is analyzing the geometrical pathways...").italics().color(egui::Color32::LIGHT_GRAY));
+                            let status = if app.correction_count > 0 {
+                                format!(
+                                    "⚙ The engine rejected the predicted line; Agent is revising ({} of {})...",
+                                    app.correction_count,
+                                    crate::app::MAX_LINE_CORRECTIONS
+                                )
+                            } else {
+                                "🤖 Agent is analyzing the geometrical pathways...".to_string()
+                            };
+                            ui.label(egui::RichText::new(status).italics().color(egui::Color32::LIGHT_GRAY));
                         });
                         ui.add_space(8.0);
                     }

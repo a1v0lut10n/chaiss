@@ -335,6 +335,12 @@ pub fn classify_backend_error(provider: &str, model: &str, raw: impl Into<String
     LlmError::new(user_message, raw)
 }
 
+/// Only the model's own replies go back to it as assistant turns; the
+/// user's prompts, the engine's verdicts and system notices are all input.
+pub fn is_assistant_role(role: &str) -> bool {
+    role == "Agent"
+}
+
 // Orchestrate non-blocking HTTP REST streaming against the payload's target backend.
 pub async fn stream_llm_response(
     payload: LlmPromptPayload,
@@ -380,10 +386,13 @@ pub async fn stream_llm_response(
         ));
     }
 
+    // The cap covers the reply and, on reasoning models, the thinking that
+    // precedes it; 8000 left revisions cut off mid-sentence once the model
+    // had an engine verdict to reason about.
     let mut builder = LLMBuilder::new()
         .api_key(api_key.clone())
         .model(&model)
-        .max_tokens(8000);
+        .max_tokens(32000);
 
     // OpenAI reasoning models (GPT-6 Astra and kin) reject any non-default
     // temperature with a 400; leaving it unset omits the field entirely.
@@ -438,7 +447,8 @@ The geometry currently dictates it is {}'s turn to move. \
 Critically evaluate physical piece interactions natively, recognize structural blunders explicitly, and predict future hostile pressure correctly. Focus your analysis purely geometrically tracking explicit pawn structure and piece coordination sequentially over time. The user provides algebraic prompts.{}\n\n\
 FORMATTING CONSTRAINT: Respond in plain Markdown only. NEVER use LaTeX or math notation — no $ or $$ delimiters and no backslash commands such as \\text or \\quad. Write chess moves as plain standard algebraic notation text.\n\n\
 CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis, you MUST provide exactly one hypothesized continuation line up to 4 plies deep recursively, formatted distinctly exactly on a single line like this:\n\
-### PREDICTIVE MATRIX: e4, e5, Nf3, Nc6",
+### PREDICTIVE MATRIX: e4, e5, Nf3, Nc6\n\n\
+The engine replays that line move by move. If a ply is not a legal move, is written after the game has ended, or the line walks the side to move into checkmate, the engine's verdict comes back to you at once: answer it with a revised analysis and a new line, never with a defence of the old one.",
         payload.system_role,
         payload.current_fen,
         payload.ascii_board,
@@ -454,10 +464,10 @@ CRITICALLY BINDING REQUIREMENT: At the mathematical conclusion of your analysis,
     messages.push(ChatMessage::assistant().content("System Context Acknowledged. I am mathematically bound to the supplied FEN bounds.").build());
 
     for (role, content) in payload.chat_history {
-        if role == "User" {
-            messages.push(ChatMessage::user().content(&content).build());
-        } else {
+        if is_assistant_role(&role) {
             messages.push(ChatMessage::assistant().content(&content).build());
+        } else {
+            messages.push(ChatMessage::user().content(&content).build());
         }
     }
 
@@ -633,6 +643,14 @@ mod tests {
         );
         // Garbage never selects anything.
         assert_eq!(select_stored_target(&targets, "not-a-storage-key"), None);
+    }
+
+    #[test]
+    fn only_agent_replies_are_assistant_turns() {
+        assert!(is_assistant_role("Agent"));
+        for role in ["User", "Engine", "System"] {
+            assert!(!is_assistant_role(role), "{role}");
+        }
     }
 
     #[test]
