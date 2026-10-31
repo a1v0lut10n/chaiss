@@ -1536,7 +1536,6 @@ dependencies = [
  "futures",
  "llm",
  "reqwest 0.13.2",
- "rustemo",
  "serde",
  "serde_json",
  "sqlx",
@@ -1628,9 +1627,9 @@ dependencies = [
 
 [[package]]
 name = "colap"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "178a70e625bd6ea12e2fae019fbdd7d40efc73243a2e8c8ce4ecd9f6232ec698"
+checksum = "dee63ff518b9ffa9a3f70e07c47131acee90bde4b2b5276709c4362511d26a20"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1639,6 +1638,7 @@ dependencies = [
  "handlebars",
  "heck 0.5.0",
  "log",
+ "regex",
  "rustemo",
  "rustemo-compiler",
  "serde_json",

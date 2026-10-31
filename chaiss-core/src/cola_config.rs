@@ -1,9 +1,9 @@
 //! Cola-based configuration (`.chaiss.cola`): LLM settings and the
 //! database location.
 //!
-//! The workspace's cola configuration language (the `colap` crate) is
-//! markdown-native: plain cola files and markdown documents with fenced
-//! ```` ```cola ```` blocks parse with the same parser, so a literate
+//! The workspace's cola configuration language (the `colap` crate) reads
+//! both bare cola files and literate markdown documents whose fenced
+//! ```` ```cola ```` blocks carry the configuration, so a literate
 //! config (see `.chaiss.cola.example`) is itself valid input.
 //!
 //! The file is read once at startup ([`init`]) into an overlay of the
@@ -12,10 +12,7 @@
 //! [`config_value`]: overlay first, environment fallback — so a
 //! `.chaiss.cola` takes precedence over `.env` per key when present.
 
-use colap::cola::ColaParser;
 use colap::config_model::{ConfigModel, ConfigValue};
-use colap::model_builder::ModelBuilder;
-use rustemo::Parser;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -36,13 +33,13 @@ const PROVIDER_KEYS: [(&str, &str); 4] = [
 static OVERLAY: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 /// A field value as configuration text (colap's `Display` for strings
-/// adds quotes, so unwrap the string variant explicitly).
+/// adds quotes, so unwrap the string variant explicitly; every other
+/// variant — numbers in their own spelling, booleans, symbols,
+/// references, lists — displays as its canonical cola text).
 fn value_text(value: &ConfigValue) -> String {
     match value {
         ConfigValue::String(s) => s.clone(),
-        ConfigValue::Integer(i) => i.to_string(),
-        ConfigValue::Float(f) => f.to_string(),
-        ConfigValue::Boolean(b) => b.to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -54,24 +51,15 @@ fn field_at(model: &ConfigModel, path: &str, field: &str) -> Option<String> {
 /// Parses cola content (plain or markdown-embedded) into an overlay of
 /// the logical configuration keys the `.env` lookup already uses.
 ///
-/// Colap's grammar is markdown-first: only fenced ```` ```cola ````
-/// blocks carry configuration, and fence-less text parses as ignored
-/// prose. Plain cola input is therefore wrapped in a synthetic fence
-/// before parsing, so both forms work. Colap stores a
-/// `provider plural providers` collection under its singular name, so
-/// provider entries live at `llm/provider/<name>`.
+/// Colap decides the dialect from the text: literate when it holds at
+/// least one fenced ```` ```cola ```` block (only the fence bodies are
+/// configuration, the prose is never looked at), bare cola otherwise.
+/// Colap stores a `provider plural providers` collection under its
+/// singular name, so provider entries live at `llm/provider/<name>`.
 pub fn overlay_from_str(content: &str) -> Result<HashMap<String, String>, String> {
-    let fenced;
-    let content = if content.contains("```cola") {
-        content
-    } else {
-        fenced = format!("```cola\n{content}\n```\n");
-        &fenced
-    };
-    let ast = ColaParser::new()
-        .parse(content)
-        .map_err(|e| e.to_string())?;
-    let model = ModelBuilder::build_config_model(&ast)?;
+    let model = colap::parse_str(content, None)
+        .map_err(|e| e.to_string())?
+        .model;
 
     // A placeholder or empty value never enters the overlay: it would
     // mask a real key set in `.env` (the example ships placeholders for
