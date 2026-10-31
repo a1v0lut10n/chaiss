@@ -10,6 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The model's `### PREDICTIVE MATRIX` line is replayed through the engine
+  when its reply completes. A ply that is not a legal move, a ply written
+  after the game has ended, or a line that walks the side to move into
+  checkmate is sent straight back as an `Engine` message, and a revised
+  analysis is requested before the reply stands (two revisions at most,
+  then the suggestion is marked unverified). The board arrows now come
+  from the same replay, and the verdict names what the piece can actually
+  reach or which replies a check allows (CHAI-0051).
+
+### Changed
+
+- The model's output cap is 32000 tokens (from 8000): on reasoning models
+  the cap also covers the thinking, and revisions were coming back cut
+  off mid-sentence. `CHAISS_LLM_TRACE=1` echoes the raw stream to stderr
+  (CHAI-0051).
+
+### Fixed
+
+- Backend error notices in the chat were sent back to the model as its
+  own assistant turns; only the model's replies are now. A reply that is
+  still empty after the retries is recorded as a system line, not as an
+  empty analysis (CHAI-0051).
+
 ## [0.6.0] - 2026-10-31
 
 ### Added

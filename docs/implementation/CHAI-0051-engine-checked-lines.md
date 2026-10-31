@@ -2,7 +2,7 @@
 
 - **Ticket:** CHAI-0051
 - **Branch:** `feature/CHAI-0051-engine-checked-lines`
-- **Status:** planned
+- **Status:** implemented (PR pending review; one live step outstanding, see Verification)
 - **Origin:** `docs/incubation/2026-10-31-phase-aware-prompting-and-tactical-grounding.md`,
   item 1, and the game 13 post-mortem.
 
@@ -123,11 +123,52 @@ silenced analysis.
 - A deeper search than replaying the written line. One or two plies of
   "what can the opponent do after your move" belongs with item 2.
 
+## What was built
+
+As designed, with these particulars:
+
+- `chaiss-core/src/engine/line_check.rs`: `extract_line`, `check_line`,
+  `LineReport` (`arrows`, `is_clean`, `describe`), `PlyVerdict`. The
+  reason for an illegal ply is built here, not from the notation
+  parser's errors: the piece's actual reach, the legal replies when in
+  check, "no queen on the board", "does not name a square". Plies after
+  a rejected one are reported as unjudged rather than guessed at. Nine
+  tests, four of them on the game 13 position.
+- `chaiss/src/app.rs`: `parse_predictive_arrows` is the report's legal
+  prefix; `InferenceFinished` replays against `payload.current_fen`,
+  records the reply, and on a verdict pushes an `Engine` message and
+  re-sends the same payload with the verdict as the prompt
+  (`correction_count`, `MAX_LINE_CORRECTIONS = 2`); after the last
+  revision the verdict carries an "unverified" note. An empty reply
+  after the existing marker retries becomes a `System` line instead of
+  an empty `Agent` entry. The discarded incomplete replies and, with
+  `CHAISS_LLM_TRACE=1`, the raw stream go to stderr.
+- `right_panel.rs`: `⚙ Engine:` role in gold; the thinking line reads
+  "revising (n of 2)" during a correction.
+- `llm.rs`: `is_assistant_role` (only `Agent` goes back as assistant);
+  one sentence in the system prompt announcing the engine check;
+  `max_tokens` 8000 → 32000, because on the live run every revision came
+  back cut off around 1000 characters once the model had a verdict to
+  reason about (thinking shares the cap on the Gemini OpenAI endpoint).
+
 ## Verification before the proposal
 
-- The three gates.
-- Live, through the egui inspection session: load game 13 to ply 38
-  (after `19.Rhd1`) in a scratch copy of the database, request analysis,
-  and watch the round trip: the engine verdict appears, the revised
-  analysis does not recommend `Rfd8`, the arrows match the verdict.
-- The user's `chaiss.db` is not modified; a scratch copy is used.
+- [x] The three gates (fmt, clippy `-D warnings`, 68 workspace tests).
+- [x] Live, through the egui inspection session, on a scratch copy of
+      the database rewound to ply 38 (after `19.Rhd1`), twice: asked
+      about `19...Rfd8`, the model gave `Rfd8, Rxd8+, Rxd8, Rxd8+`; the
+      engine replied "ply 4 Rxd8+: legal, and it is checkmate — Black is
+      mated. Your line walks Black, the side to move, into checkmate";
+      the verdict rendered as `⚙ Engine:` and revision 1 of 2 was
+      dispatched with it as the prompt.
+- [ ] The revised analysis itself. With the 8000 cap every revision
+      stream ended after ~1000 characters without the marker (three
+      retries, then an empty reply, now a `System` line). With the cap
+      at 32000 the run was interrupted by the desktop session locking:
+      a Wayland app gets no frames then, eframe spins at 100% CPU on the
+      UI thread and the inspection server cannot attach. To finish: with
+      the screen unlocked, `EGUI_INSPECTION=1 CHAISS_LLM_TRACE=1
+      DATABASE_URL=sqlite:<scratch>/verify.db target/debug/chaiss`, ask
+      the same question, and read the revision's line and any second
+      verdict from the scratch database.
+- [x] The user's `chaiss.db` is not modified; a scratch copy is used.

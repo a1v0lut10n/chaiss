@@ -1,5 +1,6 @@
 use crate::ui;
 use chaiss_core::db::{DbClient, GameRecord};
+use chaiss_core::engine::line_check;
 use chaiss_core::engine::GameState;
 use eframe::egui;
 use std::sync::Arc;
@@ -30,6 +31,10 @@ pub enum FocusMatrix {
     FirstOrder,
     Predictive,
 }
+
+/// Revisions the engine asks the model for when its predicted line fails
+/// the replay, before the analysis is left standing as unverified.
+pub const MAX_LINE_CORRECTIONS: usize = 2;
 
 pub enum LlmEvent {
     InferenceRequested(chaiss_core::llm::LlmPromptPayload),
@@ -87,6 +92,9 @@ pub struct ChaissApp {
     // Retry and Auto-Healing Mechanics
     pub retry_count: usize,
     pub active_payload: Option<chaiss_core::llm::LlmPromptPayload>,
+    /// How many times the engine has sent the current analysis back for
+    /// revision; see [`MAX_LINE_CORRECTIONS`].
+    pub correction_count: usize,
 
     // LLM Backend Selection
     /// Backends with an API key configured in the environment (never empty:
@@ -129,6 +137,7 @@ impl Default for ChaissApp {
             ai_predictive_arrows: Vec::new(),
             retry_count: 0,
             active_payload: None,
+            correction_count: 0,
             llm_targets: vec![chaiss_core::llm::env_default_target()],
             selected_llm_index: 0,
         }
@@ -148,36 +157,26 @@ impl ChaissApp {
         sanitized
     }
 
-    /// Parses the move sequence after a `### PREDICTIVE MATRIX:` marker into
-    /// continuation arrows, simulating each ply forward from `base_state`.
-    /// Cleanup keeps `-` so castling (`O-O`, `0-0`, `O-O-O`) reaches the
-    /// notation parser intact; parsing stops at the first ply that fails,
-    /// keeping the arrows accumulated so far.
+    /// The continuation arrows for the `### PREDICTIVE MATRIX:` line of a
+    /// message: the legal prefix of the engine's replay from `base_state`,
+    /// so the arrows and the engine's verdict always agree.
     pub fn parse_predictive_arrows(
         base_state: &GameState,
         message: &str,
     ) -> Vec<(usize, usize, chaiss_core::engine::Color)> {
-        let mut arrows = Vec::new();
-        let Some(matrix_idx) = message.find("### PREDICTIVE MATRIX:") else {
-            return arrows;
-        };
-        let tail = &message[matrix_idx + "### PREDICTIVE MATRIX:".len()..];
-        let sequence = tail.trim_start().lines().next().unwrap_or("");
+        line_check::extract_line(message)
+            .map(|plies| line_check::check_line(base_state, &plies).arrows())
+            .unwrap_or_default()
+    }
 
-        let mut sim_state = base_state.clone();
-        for ply in sequence.split(',') {
-            let clean_ply = ply
-                .trim()
-                .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
-            match chaiss_core::engine::notation::parse_algebraic_move(&sim_state, &clean_ply) {
-                Ok((from, to, promo)) => {
-                    arrows.push((from, to, sim_state.active_color));
-                    sim_state.apply_move(from, to, promo);
-                }
-                Err(_) => break,
-            }
+    /// Records an engine verdict in the chat and the game's record.
+    fn push_engine_message(&mut self, text: String) {
+        self.chat_history.push(("Engine".to_string(), text.clone()));
+        if let (Some(db), Some(game_id)) = (self.db_client.clone(), self.active_game_id) {
+            tokio::spawn(async move {
+                let _ = db.log_chat_message(game_id, "Engine", &text).await;
+            });
         }
-        arrows
     }
 
     /// The provider/model the user has selected for LLM requests.
@@ -424,11 +423,11 @@ impl eframe::App for ChaissApp {
         }
 
         // 2. Mathematically stream non-blocking Network LLM responses straight onto Egui Geometry safely!
-        if let Some(rx) = &self.llm_rx {
+        if let Some(rx) = self.llm_rx.clone() {
             while let Ok(event) = rx.try_recv() {
                 match event {
                     LlmEvent::InferenceRequested(payload) => {
-                        if self.retry_count == 0 {
+                        if self.retry_count == 0 && self.correction_count == 0 {
                             self.chat_history
                                 .push(("User".to_string(), payload.prompt.clone()));
 
@@ -488,6 +487,11 @@ impl eframe::App for ChaissApp {
                         println!("Dispatched LLM prompt: {}", prompt_print);
                     }
                     LlmEvent::TokenStreamed(token) => {
+                        // CHAISS_LLM_TRACE=1 echoes the raw stream to stderr, so a reply
+                        // that never completes can still be read back.
+                        if std::env::var_os("CHAISS_LLM_TRACE").is_some() {
+                            eprint!("{token}");
+                        }
                         self.live_llm_response.push_str(&token);
                     }
                     LlmEvent::SystemMessage(msg) => {
@@ -503,6 +507,22 @@ impl eframe::App for ChaissApp {
 
                         if !has_matrix && self.retry_count < 3 {
                             println!("Incomplete response detected natively, auto-retrying... (Attempt {})", self.retry_count + 1);
+                            // The discarded reply never reaches the chat; leave its shape on
+                            // the console so an empty or truncated stream can be diagnosed.
+                            let tail: String = self
+                                .live_llm_response
+                                .chars()
+                                .rev()
+                                .take(240)
+                                .collect::<Vec<_>>()
+                                .into_iter()
+                                .rev()
+                                .collect();
+                            eprintln!(
+                                "[LLM] incomplete reply: {} chars, ends with: {:?}",
+                                self.live_llm_response.chars().count(),
+                                tail
+                            );
                             self.retry_count += 1;
                             if let (Some(payload), Some(tx)) =
                                 (self.active_payload.clone(), self.llm_tx.clone())
@@ -513,17 +533,25 @@ impl eframe::App for ChaissApp {
                         }
 
                         self.retry_count = 0;
-                        self.active_payload = None;
+
+                        if self.live_llm_response.trim().is_empty() {
+                            // Three retries and nothing came back: say so instead of
+                            // recording an empty reply.
+                            self.chat_history.push((
+                                "System".to_string(),
+                                "The model returned an empty reply.".to_string(),
+                            ));
+                            self.is_llm_thinking = false;
+                            self.correction_count = 0;
+                            self.active_payload = None;
+                            continue;
+                        }
 
                         let sanitized_response = Self::sanitize_markdown(&self.live_llm_response);
 
                         self.chat_history
                             .push(("Agent".to_string(), sanitized_response.clone()));
                         self.is_llm_thinking = false;
-
-                        // Parse visual geometrical continuations structurally from the inference!
-                        self.ai_predictive_arrows =
-                            Self::parse_predictive_arrows(&self.game_state, &sanitized_response);
 
                         // Serialize AI payload asynchronously tracking dynamic streams cleanly!
                         if let (Some(db), Some(game_id)) =
@@ -536,6 +564,53 @@ impl eframe::App for ChaissApp {
                         }
 
                         self.live_llm_response.clear();
+
+                        // Replay the predicted line against the position the request
+                        // described (the user may have moved on or be browsing history).
+                        let base = self
+                            .active_payload
+                            .as_ref()
+                            .and_then(|p| GameState::from_fen(&p.current_fen).ok())
+                            .unwrap_or_else(|| self.game_state.clone());
+                        let report = line_check::extract_line(&sanitized_response)
+                            .map(|plies| line_check::check_line(&base, &plies));
+                        self.ai_predictive_arrows =
+                            report.as_ref().map(|r| r.arrows()).unwrap_or_default();
+
+                        match report.as_ref().and_then(|r| r.describe()) {
+                            Some(verdict) if self.correction_count < MAX_LINE_CORRECTIONS => {
+                                // Send the verdict straight back, with the flawed reply as the
+                                // last turn, and ask again before the analysis stands.
+                                self.correction_count += 1;
+                                println!(
+                                    "Engine rejected the predicted line; requesting revision {} of {}",
+                                    self.correction_count, MAX_LINE_CORRECTIONS
+                                );
+                                let history = self.chat_history.clone();
+                                self.push_engine_message(verdict.clone());
+                                if let (Some(payload), Some(tx)) =
+                                    (self.active_payload.clone(), self.llm_tx.clone())
+                                {
+                                    let correction = chaiss_core::llm::LlmPromptPayload {
+                                        prompt: verdict,
+                                        chat_history: history,
+                                        ..payload
+                                    };
+                                    let _ = tx.send(LlmEvent::InferenceRequested(correction));
+                                }
+                                continue;
+                            }
+                            Some(verdict) => {
+                                self.push_engine_message(format!(
+                                    "{verdict}\n\nThe engine could not confirm a line after \
+                                     {MAX_LINE_CORRECTIONS} revisions; treat this suggestion as unverified."
+                                ));
+                            }
+                            None => {}
+                        }
+
+                        self.correction_count = 0;
+                        self.active_payload = None;
                     }
                 }
             }
