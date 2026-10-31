@@ -67,6 +67,10 @@ plan above holds with two additions:
 - **`value_text` no longer compiles as written.** `ConfigValue` gained
   `Symbol(String)`, `Reference(String)` and `List(Vec<ConfigValue>)` in
   0.3.0, so the four-arm match in `cola_config.rs` needs arms for them.
+  In 0.4.0 (colap COLA-0010) `Integer(i64)` and `Float(f64)` are one
+  `Number(Number)` kept exactly as written: the overlay wants
+  `n.text()`, which is the literal without separators, so `port: 5432`
+  stays `5432` and nothing is rounded.
   `Symbol` and `Reference` carry the text the overlay wants (a bare
   `backend: ollama` reads as a symbol now, which is the natural way to
   write it); a `List` has no place in a `.env`-style overlay, so join
