@@ -8,7 +8,8 @@
 
 `.chaiss.cola` was read with colap 0.2's markdown-first grammar: a
 direct `rustemo` dependency for the parser trait, a synthetic fence
-around bare cola, and errors without a line. CHAI-0044 planned the
+around bare cola, and errors without a line. CHAI-0050 (claimed as CHAI-0044 before the
+counter moved; renumbered on review) planned the
 move to colap 0.3's facade and waited on its release; 0.3.0 and
 0.4.0 shipped a day apart, so the migration took both at once.
 
@@ -26,6 +27,6 @@ malformed file names its line.
 
 ## Links
 
-- Plan: `docs/implementation/CHAI-0044-colap-0-3-facade.md`
+- Plan: `docs/implementation/CHAI-0050-colap-0-4-facade.md`
 - PR: https://github.com/a1v0lut10n/chaiss/pull/70
 - colap 0.4.0: https://github.com/a1v0lut10n/colap/releases/tag/v0.4.0

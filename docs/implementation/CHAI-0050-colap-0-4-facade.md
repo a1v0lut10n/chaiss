@@ -1,6 +1,8 @@
-# CHAI-0044 — colap 0.3: parse `.chaiss.cola` through the facade
+# CHAI-0050 — colap 0.3/0.4: parse `.chaiss.cola` through the facade
 
-- **Ticket:** CHAI-0044
+- **Ticket:** CHAI-0050 (the branch was opened as CHAI-0044 before
+  that number had been claimed by the migration-hardening work and the
+  counter had moved on; renumbered on review, branch name kept)
 - **Branch:** `docs/CHAI-0044-colap-0-3-facade` (the plan's branch,
   carried through to the implementation)
 - **Status:** done (executed 2026-10-31 against colap 0.4.0)
