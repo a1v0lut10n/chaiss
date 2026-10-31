@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `.chaiss.cola` is read through colap 0.4 (from 0.2): the dialect is
+  detected from the text (literate when a cola fence is present, bare
+  cola otherwise), `//` comments are allowed inside cola blocks, string
+  escapes are decoded, numbers keep their spelling, and every finding is
+  printed at startup as `path:line:col: severity: message`; a key defined
+  twice is now an error (the file is ignored and `.env` applies) instead
+  of a silent merge. chaiss-core no longer depends on rustemo directly
+  (CHAI-0050).
 - Default Google model updated from `gemini-3.7-flash` to `gemini-3.8-flash`
   (CHAI-0048). A `model` set in `.chaiss.cola` or `LLM_MODEL_GOOGLE` in
   `.env` still overrides it, so an explicit `gemini-3.7-flash` there keeps

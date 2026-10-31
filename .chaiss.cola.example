@@ -9,9 +9,8 @@ prose around it is ignored. To use it:
 then replace each `your_key_here` with a real API key (a provider whose
 key is left as the placeholder is treated as not configured). The
 resulting `.chaiss.cola` is gitignored, and it may stay exactly this
-literate — keep the prose, edit the block. One cola quirk: a prose line
-may not *begin* with a backtick, so keep inline code away from the
-start of a line.
+literate — keep the prose, edit the block. Inside the block, `//`
+starts a comment that runs to the end of the line.
 
 ## How chaiss reads it
 
@@ -34,7 +33,7 @@ start of a line.
 
 ```cola
 llm:
-    backend: "google"
+    backend: "google", // google, openai, anthropic or ollama
     provider plural providers:
         google:
             api_key: "your_key_here",
