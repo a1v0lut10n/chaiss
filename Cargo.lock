@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "chaiss"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chaiss-core",
  "dotenvy",
@@ -1529,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "chaiss-core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "colap",
  "flume 0.12.0",
@@ -1598,9 +1598,9 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clipboard-win"
-version = "5.4.1"
+version = "5.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bde03770d3df201d4fb868f2c9c59e66a3e4e2bd06692a0fe701e7103c7e84d4"
+checksum = "052af7878466feccda12ba7a6a67d019d712f296809559b47c12c8cc196d3a9a"
 dependencies = [
  "error-code",
 ]

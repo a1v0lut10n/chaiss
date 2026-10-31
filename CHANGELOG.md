@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-31
+
 ### Added
 
 - `LICENSE` (Apache License 2.0) and `NOTICE` naming Hans Van Wesenbeeck as
