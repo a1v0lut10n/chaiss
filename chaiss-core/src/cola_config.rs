@@ -2,9 +2,9 @@
 //! database location.
 //!
 //! The workspace's cola configuration language (the `colap` crate) is
-//! markdown-native: plain cola files and markdown documents with fenced
-//! ```` ```cola ```` blocks parse with the same parser, so a literate
-//! config (see `.chaiss.cola.example`) is itself valid input.
+//! literate: a markdown document with fenced ```` ```cola ```` blocks
+//! and a bare cola file read the same way through colap's facade, so
+//! the literate `.chaiss.cola.example` is itself valid input.
 //!
 //! The file is read once at startup ([`init`]) into an overlay of the
 //! same logical keys the `.env` configuration uses (`LLM_BACKEND`,
@@ -12,11 +12,9 @@
 //! [`config_value`]: overlay first, environment fallback — so a
 //! `.chaiss.cola` takes precedence over `.env` per key when present.
 
-use colap::cola::ColaParser;
 use colap::config_model::{ConfigModel, ConfigValue};
-use colap::model_builder::ModelBuilder;
-use rustemo::Parser;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::OnceLock;
 
 /// The config file read from the working directory, dotted like `.env`.
@@ -36,13 +34,15 @@ const PROVIDER_KEYS: [(&str, &str); 4] = [
 static OVERLAY: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 /// A field value as configuration text (colap's `Display` for strings
-/// adds quotes, so unwrap the string variant explicitly).
+/// adds quotes, so the text kinds are taken as they are). A number is
+/// its literal, kept exactly as written; a list is its elements joined
+/// by spaces, the way an environment variable would carry them.
 fn value_text(value: &ConfigValue) -> String {
     match value {
-        ConfigValue::String(s) => s.clone(),
-        ConfigValue::Integer(i) => i.to_string(),
-        ConfigValue::Float(f) => f.to_string(),
+        ConfigValue::String(s) | ConfigValue::Symbol(s) | ConfigValue::Reference(s) => s.clone(),
+        ConfigValue::Number(n) => n.text().to_string(),
         ConfigValue::Boolean(b) => b.to_string(),
+        ConfigValue::List(items) => items.iter().map(value_text).collect::<Vec<_>>().join(" "),
     }
 }
 
@@ -51,28 +51,18 @@ fn field_at(model: &ConfigModel, path: &str, field: &str) -> Option<String> {
     model.get_field_value(entity, field).map(|v| value_text(&v))
 }
 
-/// Parses cola content (plain or markdown-embedded) into an overlay of
-/// the logical configuration keys the `.env` lookup already uses.
-///
-/// Colap's grammar is markdown-first: only fenced ```` ```cola ````
-/// blocks carry configuration, and fence-less text parses as ignored
-/// prose. Plain cola input is therefore wrapped in a synthetic fence
-/// before parsing, so both forms work. Colap stores a
+/// Parses cola content (literate markdown or bare cola, as colap
+/// detects it) into an overlay of the logical configuration keys the
+/// `.env` lookup already uses. The error names the line and column.
+pub fn overlay_from_str(content: &str) -> Result<HashMap<String, String>, String> {
+    let parsed = colap::parse_str(content, None).map_err(|e| e.to_string())?;
+    Ok(overlay_from_model(&parsed.model))
+}
+
+/// The overlay of a parsed configuration. Colap stores a
 /// `provider plural providers` collection under its singular name, so
 /// provider entries live at `llm/provider/<name>`.
-pub fn overlay_from_str(content: &str) -> Result<HashMap<String, String>, String> {
-    let fenced;
-    let content = if content.contains("```cola") {
-        content
-    } else {
-        fenced = format!("```cola\n{content}\n```\n");
-        &fenced
-    };
-    let ast = ColaParser::new()
-        .parse(content)
-        .map_err(|e| e.to_string())?;
-    let model = ModelBuilder::build_config_model(&ast)?;
-
+fn overlay_from_model(model: &ConfigModel) -> HashMap<String, String> {
     // A placeholder or empty value never enters the overlay: it would
     // mask a real key set in `.env` (the example ships placeholders for
     // every provider, and copying it must not un-configure anything).
@@ -82,51 +72,59 @@ pub fn overlay_from_str(content: &str) -> Result<HashMap<String, String>, String
             overlay.insert(key, value);
         }
     };
-    if let Some(backend) = field_at(&model, "llm", "backend") {
+    if let Some(backend) = field_at(model, "llm", "backend") {
         set("LLM_BACKEND".to_string(), backend);
     }
     for (provider, key_env) in PROVIDER_KEYS {
         let path = format!("llm/provider/{provider}");
-        if let Some(api_key) = field_at(&model, &path, "api_key") {
+        if let Some(api_key) = field_at(model, &path, "api_key") {
             if !key_env.is_empty() {
                 set(key_env.to_string(), api_key);
             }
         }
-        if let Some(model_name) = field_at(&model, &path, "model") {
+        if let Some(model_name) = field_at(model, &path, "model") {
             set(format!("LLM_MODEL_{}", provider.to_uppercase()), model_name);
         }
     }
     // `database.url` names the file the running app opens. It cannot reach
     // the build-time sqlx query check, which reads `.env`/the environment
     // only; an empty value falls through to `.env` like a placeholder key.
-    if let Some(url) = field_at(&model, "database", "url") {
+    if let Some(url) = field_at(model, "database", "url") {
         set("DATABASE_URL".to_string(), url);
     }
-    Ok(overlay)
+    overlay
 }
 
 /// Loads `.chaiss.cola` from the working directory into the process-wide
 /// overlay. Call once at startup, before the UI starts. A missing file
 /// is normal (env-only configuration); a malformed file never crashes —
-/// it is reported on the console and the overlay stays empty.
+/// every finding is reported on the console as `path:line:col:
+/// severity: message` and the overlay stays empty. Warnings (an
+/// unclosed fence, an empty entity) are reported and the file is used.
 pub fn init() {
-    let overlay = match std::fs::read_to_string(COLA_CONFIG_FILE) {
-        Ok(content) => match overlay_from_str(&content) {
-            Ok(overlay) => {
+    let overlay = if Path::new(COLA_CONFIG_FILE).is_file() {
+        let report = colap::check_file(COLA_CONFIG_FILE);
+        for finding in report.diagnostics() {
+            eprintln!("[config] {finding}");
+        }
+        match report.outcome {
+            Ok(model) => {
+                let overlay = overlay_from_model(&model);
                 println!(
                     "Loaded configuration from {COLA_CONFIG_FILE} ({} keys; takes precedence over .env).",
                     overlay.len()
                 );
                 overlay
             }
-            Err(e) => {
+            Err(_) => {
                 eprintln!(
-                    "[config error] {COLA_CONFIG_FILE} could not be parsed and is ignored (falling back to .env): {e}"
+                    "[config error] {COLA_CONFIG_FILE} is ignored because of the errors above (falling back to .env)."
                 );
                 HashMap::new()
             }
-        },
-        Err(_) => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
     };
     let _ = OVERLAY.set(overlay);
 }
@@ -144,8 +142,8 @@ pub fn config_value(key: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    // Note: no comma after `backend` — in cola, a comma continues a
-    // field list, so a nested entity may not follow one.
+    // A trailing comma before a nested entity has been optional since
+    // colap 0.3; the example keeps the older spelling without it.
     const PLAIN: &str = r#"llm:
     backend: "openai"
     provider plural providers:
@@ -240,6 +238,21 @@ mod tests {
     #[test]
     fn malformed_cola_is_an_error_not_a_panic() {
         assert!(overlay_from_str("llm: this is { not cola").is_err());
+    }
+
+    #[test]
+    fn a_malformed_file_names_its_line() {
+        let error = overlay_from_str("llm:\n    backend: \"openai\",\n    broken {\n;\n")
+            .expect_err("malformed");
+        assert!(error.starts_with("3:"), "{error}");
+    }
+
+    #[test]
+    fn symbols_numbers_and_comments_are_read() {
+        let content = "llm: // the backend\n    backend: openai, // a symbol\n;\ndatabase: url: 'sqlite:x', pool: 1_0;\n";
+        let overlay = overlay_from_str(content).unwrap();
+        assert_eq!(overlay.get("LLM_BACKEND").unwrap(), "openai");
+        assert_eq!(overlay.get("DATABASE_URL").unwrap(), "sqlite:x");
     }
 
     #[test]
