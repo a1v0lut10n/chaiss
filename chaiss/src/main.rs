@@ -91,11 +91,6 @@ async fn main() -> eframe::Result<()> {
 
     // Explicitly load .env contents mathematically into the OS environment vector array!
     dotenvy::dotenv().ok();
-    // rustemo (colap's parser runtime) traces every parse step to stderr in
-    // debug builds unless this is set; keep debug launches as quiet as release.
-    if std::env::var_os("RUSTEMO_NOTRACE").is_none() {
-        std::env::set_var("RUSTEMO_NOTRACE", "1");
-    }
     // Overlay .chaiss.cola (literate or plain cola) on top; it wins per key.
     chaiss_core::cola_config::init();
 
