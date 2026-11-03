@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- colap 0.5 with its default features off: the parser alone, without
+  the CLI and code-generator crates colap 0.4 brought along (24 crates
+  leave the lockfile). The `RUSTEMO_NOTRACE` guard at startup is gone:
+  since rustemo 0.8 the parse trace is opt-in through `RUSTEMO_TRACE`,
+  so a debug launch is quiet by itself.
+
 - The model's output cap is 32000 tokens (from 8000): on reasoning models
   the cap also covers the thinking, and revisions were coming back cut
   off mid-sentence. `CHAISS_LLM_TRACE=1` echoes the raw stream to stderr
