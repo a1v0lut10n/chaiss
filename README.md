@@ -51,7 +51,9 @@ Within mere hours of spelling out that I wanted to use my favorite language, my 
    ```bash
    cargo run --release
    ```
-   **Linux / WSL note:** building needs the OpenSSL headers, and colour emoji in the chat come from the system's emoji font. On Debian/Ubuntu (WSL included — WSLg shows the window directly, no Windows build needed): `sudo apt install libssl-dev fonts-noto-color-emoji`. Windows and macOS ship an emoji font already.
+   **Linux / WSL note:** building needs the OpenSSL headers, and colour emoji in the chat come from the system's emoji font. On Debian/Ubuntu: `sudo apt install libssl-dev fonts-noto-color-emoji`. Windows and macOS ship an emoji font already.
+
+   **WSL:** WSLg shows the window on the Windows desktop directly, no Windows build needed. Chaiss opens it through X11 there, because WSLg's Wayland compositor crashes under the title bar winit draws on Wayland (the app then exits with `Broken pipe`). That needs one more package: `sudo apt install libxkbcommon-x11-0`. Set `CHAISS_WAYLAND=1` to try Wayland anyway.
 
    **Developer note:** when `DATABASE_URL` is set (it is, once you copied `.env.example`), the `sqlx::query!` macros validate every query against that live file *at compile time*, while the migrations only run when the app starts. A fresh clone with an un-migrated `chaiss.db` therefore fails to build with `no such column: ...`. Either apply the migrations once with `sqlx migrate run --source chaiss-core/migrations` (needs `cargo install sqlx-cli`), or build with `SQLX_OFFLINE=true` so the committed `chaiss-core/.sqlx` cache is used instead. `.chaiss.cola` can name the file the running app opens (`database.url`), but it cannot reach the build-time check or set `SQLX_OFFLINE`, so a cola-only setup without `.env` is unaffected and builds against the cache automatically.
 

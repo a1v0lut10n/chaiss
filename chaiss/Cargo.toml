@@ -20,6 +20,11 @@ dotenvy = "0.15.7"
 egui_commonmark = "0.26.0"
 image = "0.25.10"
 
+# Linux only: winit's X11 builder extension, to force X11 under WSL (see
+# src/wsl.rs). eframe does not re-export it; unifies with eframe's winit.
+[target.'cfg(target_os = "linux")'.dependencies]
+winit = { version = "0.30", default-features = false, features = ["x11"] }
+
 [features]
 # Opt-in egui UI inspection: pulls in eframe's inspection plugin (egui_inspection +
 # accesskit). At runtime, launch with EGUI_INSPECTION=1 to expose the live UI tree

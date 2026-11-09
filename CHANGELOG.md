@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Apple Color Emoji, Noto Color Emoji). On Linux without an emoji font,
   install `fonts-noto-color-emoji`.
 
+### Fixed
+
+- On WSL, chaiss exited at startup with `Broken pipe` /
+  `WinitEventLoop(ExitFailure(1))`: WSLg's Weston compositor segfaults
+  under the title bar winit draws on Wayland. Under WSL the window now
+  opens through X11 (XWayland), which needs `libxkbcommon-x11-0`;
+  `CHAISS_WAYLAND=1` opts back into Wayland.
+
 ### Removed
 
 - The bundled monochrome `NotoEmoji-Regular.ttf` (880 KB): as a
