@@ -391,7 +391,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     let index = logical_row * 8 + logical_col;
 
                     // 1. Assign native geometric Hit-Box listener
-                    let response = ui.interact(square_rect, ui.id().with(index), egui::Sense::click());
+                    let response = ui.interact(square_rect, ui.scope_id().with(index), egui::Sense::click());
 
                     // 2. Draw base square natively mapped to vector rect bounds
                     ui.painter().rect_filled(square_rect, 0.0, base_color);

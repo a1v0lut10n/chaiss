@@ -41,7 +41,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                         let (card_res, trash_res) = theme::frame_with_corner_click(
                             ui,
                             theme::session_card_frame(is_active),
-                            egui::Id::new(("session_card", g_id)),
+                            egui::Id::unique(("session_card", g_id)),
                             |ui| {
                                 ui.set_width(ui.available_width());
                                 let mut trash_rect = egui::Rect::NOTHING;
