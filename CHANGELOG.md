@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgraded the egui stack to 0.37 (`eframe`, `egui_extras` 0.37,
+  `egui_commonmark` 0.26). Emoji in the chat, session cards and toolbar
+  now render in colour from the platform's emoji font (Segoe UI Emoji,
+  Apple Color Emoji, Noto Color Emoji). On Linux without an emoji font,
+  install `fonts-noto-color-emoji`.
+
+### Removed
+
+- The bundled monochrome `NotoEmoji-Regular.ttf` (880 KB): as a
+  configured font it would take precedence over the system colour emoji
+  font.
+
 ### Added
 
 - The model's `### PREDICTIVE MATRIX` line is replayed through the engine
