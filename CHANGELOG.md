@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The chat pane's Send button lost its right border: the prompt row
+  reserved 50 px for it while "Send" with the 0.37 button padding needs
+  53.5. The row is now laid out from the right, the button at its
+  natural width and the text field taking the rest (CHAI-0056).
 - When the GPU renderer cannot start (typically `Device(Lost)` because
   other programs hold the GPU's memory), chaiss now prints what happened,
   what to close, and the `WGPU_BACKEND` / `WGPU_POWER_PREF` switches to

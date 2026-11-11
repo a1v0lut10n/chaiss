@@ -1,5 +1,41 @@
 use eframe::egui;
 
+/// Height of the prompt field and its Send button.
+const CHAT_INPUT_HEIGHT: f32 = 60.0;
+
+/// The prompt field with its Send button, laid out right to left: the
+/// button takes its natural width first (a hard-coded 50 px ran short of
+/// "Send" plus the 0.37 button padding, so its right stroke drew past the
+/// panel's content edge and was clipped), and the field gets the rest.
+/// Returns (send clicked, Ctrl+Enter pressed in the field, the field).
+pub fn chat_input_row(ui: &mut egui::Ui, prompt: &mut String) -> (bool, bool, egui::Response) {
+    ui.push_id("chat_input_row", |ui| {
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), CHAT_INPUT_HEIGHT),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                let send_clicked = ui
+                    .add_sized([0.0, CHAT_INPUT_HEIGHT], egui::Button::new("Send"))
+                    .clicked();
+                let response = ui.add_sized(
+                    [ui.available_width(), CHAT_INPUT_HEIGHT],
+                    egui::TextEdit::multiline(prompt)
+                        .id_salt("chat_prompt")
+                        .hint_text(
+                            "Enter algebraic move or detailed prompt (Ctrl+Enter to send)...",
+                        )
+                        .desired_rows(3),
+                );
+                let enter_pressed = response.has_focus()
+                    && ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.command);
+                (send_clicked, enter_pressed, response)
+            },
+        )
+        .inner
+    })
+    .inner
+}
+
 pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
     egui::Panel::right("chat_panel")
         .resizable(true)
@@ -38,24 +74,12 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     ui.checkbox(&mut app.silence_llm_analysis, "Silence AI Auto-Analysis for Rapid Testing");
                     ui.add_space(5.0);
 
-                    let (send_clicked, enter_pressed, response) = ui.horizontal(|ui| {
-                        let total_width = ui.available_width();
-                        let btn_width = 50.0;
-                        let spacing = ui.spacing().item_spacing.x;
-                        let text_width = total_width - btn_width - spacing - 2.0;
-
-                        let response = ui.add_sized(
-                            [text_width, 60.0],
-                            egui::TextEdit::multiline(&mut app.prompt_buffer)
-                                .hint_text("Enter algebraic move or detailed prompt (Ctrl+Enter to send)...")
-                                .desired_rows(3)
-                        );
-
-                        let send_clicked = ui.add_sized([btn_width, 60.0], egui::Button::new("Send")).clicked();
-                        let enter_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.command);
-
-                        (send_clicked, enter_pressed, response)
-                    }).inner;
+                    // Right to left: the button takes its natural width first (a
+                    // hard-coded 50 px ran short of "Send" plus the 0.37 button
+                    // padding, so its right stroke drew past the panel's content
+                    // edge and was clipped), and the text field gets the rest.
+                    let (send_clicked, enter_pressed, response) =
+                        chat_input_row(ui, &mut app.prompt_buffer);
 
                     if send_clicked || enter_pressed {
                         let text = app.prompt_buffer.trim().to_string();
@@ -319,4 +343,53 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     }
                 });
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::chat_input_row;
+    use eframe::egui::{Role, Vec2};
+    use egui_kittest::{kittest::Queryable as _, Harness};
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    /// The Send button must sit inside the row it is given, whatever width
+    /// the theme's padding makes it: the old fixed 50 px pushed its right
+    /// stroke past the panel's content edge, where the frame clipped it.
+    #[test]
+    fn send_button_stays_inside_the_row() {
+        for width in [260.0_f32, 320.0, 480.0] {
+            let right_edge = Rc::new(Cell::new(0.0_f32));
+            let edge = Rc::clone(&right_edge);
+            let mut prompt = String::new();
+            let mut installed = false;
+            let harness = Harness::builder()
+                .with_size(Vec2::new(width, 120.0))
+                .build_ui(move |ui| {
+                    if !installed {
+                        crate::ui::theme::ChaissTheme::install(ui.ctx());
+                        installed = true;
+                    }
+                    edge.set(ui.max_rect().right());
+                    chat_input_row(ui, &mut prompt);
+                });
+            let button = harness.get_by_role_and_label(Role::Button, "Send").rect();
+            let field = harness.get_by_role(Role::MultilineTextInput).rect();
+            assert!(
+                button.right() <= right_edge.get() + 0.01,
+                "width {width}: button ends at {} past the content edge {}",
+                button.right(),
+                right_edge.get()
+            );
+            assert!(
+                field.right() <= button.left(),
+                "width {width}: field {field:?} overlaps button {button:?}"
+            );
+            assert!(
+                button.width() >= 40.0,
+                "width {width}: button only {} wide",
+                button.width()
+            );
+        }
+    }
 }
