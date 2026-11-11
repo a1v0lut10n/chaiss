@@ -11,7 +11,10 @@ keywords = ["egui", "chess", "desktop", "llm"]
 categories = ["games", "gui"]
 
 [dependencies]
-eframe = "0.37"
+# `experimental` enables egui's theme plugin (StyleProvider), used by
+# src/ui/theme.rs. It carries no semver promise: on every egui upgrade,
+# check the theme first.
+eframe = { version = "0.37", features = ["experimental"] }
 tokio = { version = "1.0", features = ["full"] }
 flume = "0.12.0"
 chaiss-core = { version = "0.6.0", path = "../chaiss-core" }
@@ -24,6 +27,10 @@ image = "0.25.10"
 # src/wsl.rs). eframe does not re-export it; unifies with eframe's winit.
 [target.'cfg(target_os = "linux")'.dependencies]
 winit = { version = "0.30", default-features = false, features = ["x11"] }
+
+[dev-dependencies]
+# egui's own headless harness (no GPU): theme geometry and AccessKit tests.
+egui_kittest = "0.37"
 
 [features]
 # Opt-in egui UI inspection: pulls in eframe's inspection plugin (egui_inspection +

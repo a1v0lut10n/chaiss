@@ -3,7 +3,7 @@
 - **Ticket:** CHAI-0054
 - **Branch:** `feature/CHAI-0054-widget-theme` (stacked on
   `bugfix/CHAI-0053-wsl-prefer-x11`)
-- **Status:** planned; spike (step 1) done 2026-11-10
+- **Status:** done (executed 2026-11-10)
 - **Origin:** egui 0.37's experimental theme plugin (emilk/egui#8153),
   raised with the CHAI-0052 upgrade.
 
@@ -169,7 +169,46 @@ uses; delete the hand-painted button; pin dark mode.
   not a bug fix.
 - **One-frame hover lag**: cosmetic, shared with stock egui.
 
-## Consequences (expected)
+## What was built
+
+As planned, with these differences:
+
+- **The `min_w` arguments are gone** from `danger_button`,
+  `toolbar_button` and `primary_toolbar_button`. They existed only to
+  absorb the 0.36 hover shift, which the spike showed is gone; the
+  buttons now take their natural width (`12 px` padding each side, as
+  the painter had).
+- **Button frames are built, not patched.** The provider keeps
+  `DefaultStyle`'s gap, image tint and minimum height, but paints its own
+  frame: 1 px border in every state and no hover expansion (egui's dark
+  default grows a hovered button by 1 px, which chaiss's buttons never
+  did). `DefaultStyle`'s frame classes are mirrored: `CLASS_NO_FRAME`
+  gives no frame; `CLASS_HIDE_FRAME_WHEN_INACTIVE` (ComboBox items) gives
+  the painted frame made invisible at rest, so margins match on hover.
+- **TextEdit** gets a 1 px border at rest too (egui's dark default has
+  none), applied with `apply_stroke_and_expansion_without_layout_shift`;
+  read-only fields keep egui's style.
+- **Dark mode** is pinned with `Context::set_theme(ThemePreference::Dark)`.
+
+Tests (`ui::theme::tests`, egui_kittest, `MissingGlyphPolicy::Tofu`):
+every helper is a `Role::Button` found by its label; the three toolbar
+buttons are exactly 28 px tall; hovering or pressing any of the five
+moves nothing in the row; each class maps to its tokens in every state;
+margins, stroke width and minimum size are state-independent for every
+variant, and the hidden ComboBox-item frame is transparent at rest.
+Mutation check: making the toolbar margin grow on hover fails both
+geometry tests.
+
+Visual check under WSLg, by screenshots taken through a temporary
+`CHAISS_SHOT` hook (not committed), before and after. The navigation
+buttons, Send, ComboBox, checkboxes and text fields now carry the token
+borders and fills; Resign and Create New Game are unchanged to the eye.
+The bottom bar's stroked buttons don't clip (pitfall 1), and the top row
+(turn heading, Resign, overlay label, ComboBox) shares one centreline
+(pitfall 5). Not captured: the ComboBox popup open, and hover states,
+which the tests cover instead.
+
+## Consequences
 
 - Every button, ComboBox, checkbox and text field in chaiss draws from the
   same tokens, in dark mode regardless of the OS setting.

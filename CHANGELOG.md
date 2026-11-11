@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Apple Color Emoji, Noto Color Emoji). On Linux without an emoji font,
   install `fonts-noto-color-emoji`.
 
+- One widget theme: every stock button, ComboBox, text field, checkbox
+  and separator now draws from chaiss's colour tokens through egui's
+  experimental `StyleProvider` (eframe feature `experimental`), and the
+  app stays in dark mode regardless of the OS setting. The hand-painted
+  toolbar button is gone; its 0.36 hover shift no longer exists in egui
+  0.37.
+
 ### Fixed
 
 - On WSL, chaiss exited at startup with `Broken pipe` /

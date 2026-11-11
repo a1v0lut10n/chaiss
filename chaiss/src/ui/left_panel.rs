@@ -18,7 +18,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
             ui.heading("Game Roster");
             ui.add_space(10.0);
 
-            if theme::primary_toolbar_button(ui, "Create New Game", 150.0).clicked() {
+            if theme::primary_toolbar_button(ui, "Create New Game").clicked() {
                 app.show_new_game_modal = true;
             }
             ui.add_space(20.0);
