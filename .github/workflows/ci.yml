@@ -5,6 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    # `edited` covers a base-branch change: when a stacked PR's base is
+    # merged and deleted, GitHub retargets the next PR to main, and without
+    # this type the required checks never run for it.
+    types: [ opened, synchronize, reopened, edited ]
 
 env:
   CARGO_TERM_COLOR: always
