@@ -10,20 +10,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-11
+
+### Added
+
+- The model's `### PREDICTIVE MATRIX` line is replayed through the engine
+  when its reply completes. A ply that is not a legal move, a ply written
+  after the game has ended, or a line that walks the side to move into
+  checkmate is sent straight back as an `Engine` message, and a revised
+  analysis is requested before the reply stands (two revisions at most,
+  then the suggestion is marked unverified). The board arrows now come
+  from the same replay, and the verdict names what the piece can actually
+  reach or which replies a check allows (CHAI-0051).
+
 ### Changed
 
 - Upgraded the egui stack to 0.37 (`eframe`, `egui_extras` 0.37,
   `egui_commonmark` 0.26). Emoji in the chat, session cards and toolbar
   now render in colour from the platform's emoji font (Segoe UI Emoji,
   Apple Color Emoji, Noto Color Emoji). On Linux without an emoji font,
-  install `fonts-noto-color-emoji`.
-
+  install `fonts-noto-color-emoji` (CHAI-0052). Known issue: on some
+  Linux desktops the chat's 👤 and 🤖 still come out monochrome
+  (CHAI-0057).
 - One widget theme: every stock button, ComboBox, text field, checkbox
   and separator now draws from chaiss's colour tokens through egui's
   experimental `StyleProvider` (eframe feature `experimental`), and the
   app stays in dark mode regardless of the OS setting. The hand-painted
   toolbar button is gone; its 0.36 hover shift no longer exists in egui
-  0.37.
+  0.37 (CHAI-0054).
+- colap 0.5 with its default features off: the parser alone, without
+  the CLI and code-generator crates colap 0.4 brought along (24 crates
+  leave the lockfile). The `RUSTEMO_NOTRACE` guard at startup is gone:
+  since rustemo 0.8 the parse trace is opt-in through `RUSTEMO_TRACE`,
+  so a debug launch is quiet by itself.
+- The model's output cap is 32000 tokens (from 8000): on reasoning models
+  the cap also covers the thinking, and revisions were coming back cut
+  off mid-sentence. `CHAISS_LLM_TRACE=1` echoes the raw stream to stderr
+  (CHAI-0051).
+- Dependencies refreshed to their latest compatible versions in the
+  lockfile.
 
 ### Fixed
 
@@ -39,44 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `WinitEventLoop(ExitFailure(1))`: WSLg's Weston compositor segfaults
   under the title bar winit draws on Wayland. Under WSL the window now
   opens through X11 (XWayland), which needs `libxkbcommon-x11-0`;
-  `CHAISS_WAYLAND=1` opts back into Wayland.
+  `CHAISS_WAYLAND=1` opts back into Wayland (CHAI-0053).
+- Backend error notices in the chat were sent back to the model as its
+  own assistant turns; only the model's replies are now. A reply that is
+  still empty after the retries is recorded as a system line, not as an
+  empty analysis (CHAI-0051).
 
 ### Removed
 
 - The bundled monochrome `NotoEmoji-Regular.ttf` (880 KB): as a
   configured font it would take precedence over the system colour emoji
-  font.
-
-### Added
-
-- The model's `### PREDICTIVE MATRIX` line is replayed through the engine
-  when its reply completes. A ply that is not a legal move, a ply written
-  after the game has ended, or a line that walks the side to move into
-  checkmate is sent straight back as an `Engine` message, and a revised
-  analysis is requested before the reply stands (two revisions at most,
-  then the suggestion is marked unverified). The board arrows now come
-  from the same replay, and the verdict names what the piece can actually
-  reach or which replies a check allows (CHAI-0051).
-
-### Changed
-
-- colap 0.5 with its default features off: the parser alone, without
-  the CLI and code-generator crates colap 0.4 brought along (24 crates
-  leave the lockfile). The `RUSTEMO_NOTRACE` guard at startup is gone:
-  since rustemo 0.8 the parse trace is opt-in through `RUSTEMO_TRACE`,
-  so a debug launch is quiet by itself.
-
-- The model's output cap is 32000 tokens (from 8000): on reasoning models
-  the cap also covers the thinking, and revisions were coming back cut
-  off mid-sentence. `CHAISS_LLM_TRACE=1` echoes the raw stream to stderr
-  (CHAI-0051).
-
-### Fixed
-
-- Backend error notices in the chat were sent back to the model as its
-  own assistant turns; only the model's replies are now. A reply that is
-  still empty after the retries is recorded as a system line, not as an
-  empty analysis (CHAI-0051).
+  font (CHAI-0052).
 
 ## [0.6.0] - 2026-10-31
 
