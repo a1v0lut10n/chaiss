@@ -13,7 +13,10 @@ categories = ["games", "algorithms", "science"]
 [dependencies]
 flume = "0.12.0"
 futures = "0.3.32"
-llm = { version = "1.3.7", features = ["google", "openai", "anthropic"] }
+# Pinned: llm 1.3.8 sends every OpenAI-backend request to the Responses API
+# (`/responses`), which Gemini's OpenAI-compatible endpoint does not serve
+# (404). 1.3.7 still posts to `chat/completions`. See CHAI-0058.
+llm = { version = "=1.3.7", features = ["google", "openai", "anthropic"] }
 # The workspace's own configuration language (.chaiss.cola).
 colap = { version = "0.5", default-features = false }
 reqwest = { version = "0.13.2", features = ["json"] }

@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Every Gemini turn on 0.7.0 failed with `OpenAI responses API returned
+  error status: 404 Not Found`: the dependency refresh had moved the
+  `llm` crate to 1.3.8, whose OpenAI backend posts to the Responses API
+  (`/responses`), which Google's OpenAI-compatible endpoint does not
+  serve. `llm` is pinned to 1.3.7, which posts to `chat/completions` as
+  before. The pin also fixes fresh `cargo install chaiss` builds, which
+  had been resolving to 1.3.8 since April (CHAI-0058).
+
 ## [0.7.0] - 2026-11-11
 
 ### Added
