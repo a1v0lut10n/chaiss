@@ -3,6 +3,8 @@ use eframe::egui;
 mod app;
 mod desktop_entry;
 mod ui;
+#[cfg(target_os = "linux")]
+mod wsl;
 
 use app::ChaissApp;
 
@@ -19,6 +21,28 @@ fn load_icon() -> Option<Arc<egui::IconData>> {
     }))
 }
 
+/// The winit event-loop hook: on WSL, force the X11 backend (see `wsl`).
+#[cfg(target_os = "linux")]
+fn event_loop_hook() -> Option<eframe::EventLoopBuilderHook> {
+    if !wsl::prefer_x11_from_env() {
+        return None;
+    }
+    println!(
+        "WSL detected: opening the window through X11 (WSLg's Wayland compositor crashes \
+         under client-drawn title bars). Needs libxkbcommon-x11-0; set {}=1 to use Wayland.",
+        wsl::OPT_OUT_VAR
+    );
+    Some(Box::new(|builder| {
+        use winit::platform::x11::EventLoopBuilderExtX11;
+        builder.with_x11();
+    }))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn event_loop_hook() -> Option<eframe::EventLoopBuilderHook> {
+    None
+}
+
 const USAGE: &str = "\
 Usage: chaiss [OPTION]
 
@@ -31,6 +55,10 @@ chaiss.db from the current directory.
                            directory; on Wayland this is what gives the window its icon
   -V, --version            print the version
   -h, --help               print this help
+
+On WSL the window opens through X11 (needs libxkbcommon-x11-0), since WSLg's
+Wayland compositor crashes under client-drawn title bars; set CHAISS_WAYLAND=1
+to use Wayland anyway.
 ";
 
 /// Writes the desktop entry and icon for this executable, working in the
@@ -131,6 +159,7 @@ async fn main() -> eframe::Result<()> {
 
     let native_options = eframe::NativeOptions {
         viewport,
+        event_loop_builder: event_loop_hook(),
         ..Default::default()
     };
 
