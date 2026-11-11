@@ -204,7 +204,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
 
                 if terminal_state.is_none() {
                     ui.add_space(15.0);
-                    if crate::ui::theme::danger_button(ui, "⚐ Resign", 80.0).clicked() {
+                    if crate::ui::theme::danger_button(ui, "⚐ Resign").clicked() {
                         let loser = app.game_state.active_color;
                         let winner = loser.opposite();
                         let result_str = if winner == Color::White { "1-0".to_string() } else { "0-1".to_string() };
@@ -244,7 +244,7 @@ pub fn draw(ui: &mut egui::Ui, app: &mut crate::app::ChaissApp) {
                     && !app.is_llm_thinking;
                 if can_undo {
                     ui.add_space(8.0);
-                    let undo_res = crate::ui::theme::toolbar_button(ui, "⟲ Undo Move", 110.0)
+                    let undo_res = crate::ui::theme::toolbar_button(ui, "⟲ Undo Move")
                         .on_hover_text("Formally revert the last committed move");
                     if undo_res.clicked() {
                         if let (Some(db), Some(tx), Some(game_id)) = (

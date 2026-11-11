@@ -168,6 +168,7 @@ async fn main() -> eframe::Result<()> {
         native_options,
         Box::new(move |cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
+            ui::theme::ChaissTheme::install(&cc.egui_ctx);
 
             // No bundled emoji font: eframe's `system_fonts` provider finds the
             // platform's color emoji font (Segoe UI Emoji, Apple Color Emoji,
