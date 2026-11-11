@@ -163,7 +163,7 @@ async fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
-    eframe::run_native(
+    let outcome = eframe::run_native(
         "Chaiss - AI Chess Board",
         native_options,
         Box::new(move |cc| {
@@ -177,5 +177,81 @@ async fn main() -> eframe::Result<()> {
 
             Ok(Box::new(ChaissApp::new(cc, db_client, initial_sessions)))
         }),
-    )
+    );
+    if let Err(err) = outcome {
+        eprintln!("{}", describe_run_failure(&err));
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+/// What to tell the user when the window or its renderer could not be
+/// brought up. `main` returning the error would print its `Debug` form
+/// (`Error: Wgpu(RequestDeviceError(... Device(Lost)))`), which says
+/// nothing about the likely cause: the GPU had no memory left for another
+/// device because other programs (large models, a second GPU-heavy app)
+/// hold it.
+fn describe_run_failure(err: &eframe::Error) -> String {
+    let detail = format!("{err} ({err:?})");
+    match err {
+        eframe::Error::Wgpu(wgpu_err) => {
+            let cause = match wgpu_err {
+                eframe::egui_wgpu::WgpuError::RequestDeviceError(_) => {
+                    "The graphics driver found a GPU but refused to open a device on it. \
+                     The usual reason is that the GPU's memory is already taken by other \
+                     programs (a running model, another GPU-heavy application): close or \
+                     shrink them and start chaiss again."
+                }
+                eframe::egui_wgpu::WgpuError::RequestAdapterError(_)
+                | eframe::egui_wgpu::WgpuError::CustomNativeAdapterSelectionError(_) => {
+                    "No usable GPU adapter was found for the selected backend. Check that \
+                     the graphics driver is installed and that any WGPU_BACKEND / \
+                     WGPU_ADAPTER_NAME setting names something this machine has."
+                }
+                _ => {
+                    "The GPU renderer could not be set up. Check the graphics driver, and \
+                     that no other program has exhausted the GPU."
+                }
+            };
+            format!(
+                "chaiss could not start its GPU renderer.\n\n{cause}\n\n\
+                 To try another path: WGPU_BACKEND=vulkan or WGPU_BACKEND=gl selects the \
+                 backend, WGPU_POWER_PREF=low prefers an integrated GPU where there is one.\n\n\
+                 Renderer error: {detail}"
+            )
+        }
+        eframe::Error::Winit(_) | eframe::Error::WinitEventLoop(_) => format!(
+            "chaiss could not open a window.\n\nCheck that a display session is available \
+             (DISPLAY / WAYLAND_DISPLAY) and, on WSL, that libxkbcommon-x11-0 is installed.\n\n\
+             Window error: {detail}"
+        ),
+        eframe::Error::AppCreation(_) => format!("chaiss failed while starting up: {detail}"),
+        #[allow(unreachable_patterns)]
+        _ => format!("chaiss could not start: {detail}"),
+    }
+}
+
+#[cfg(test)]
+mod run_failure_tests {
+    use super::describe_run_failure;
+
+    #[test]
+    fn a_renderer_setup_failure_names_the_gpu_and_the_switches() {
+        let err = eframe::Error::Wgpu(eframe::egui_wgpu::WgpuError::NoSurfaceFormatsAvailable);
+        let text = describe_run_failure(&err);
+        assert!(
+            text.starts_with("chaiss could not start its GPU renderer."),
+            "{text}"
+        );
+        assert!(text.contains("WGPU_BACKEND"), "{text}");
+        assert!(text.contains("NoSurfaceFormatsAvailable"), "{text}");
+    }
+
+    #[test]
+    fn app_creation_failures_keep_their_message() {
+        let err = eframe::Error::AppCreation("database went away".into());
+        let text = describe_run_failure(&err);
+        assert!(text.contains("database went away"), "{text}");
+        assert!(!text.contains("GPU"), "{text}");
+    }
 }
