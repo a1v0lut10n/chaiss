@@ -42,9 +42,19 @@ a checkout.
    reason and this ticket; `cargo update -p llm --precise 1.3.7`. This
    restores the 0.6.0 request path byte for byte and fixes fresh
    installs too.
-2. Gates: `cargo fmt --all -- --check`, `cargo clippy --workspace
+2. `default-features = false` on the same line, with `default-tls`
+   named. Hans noticed `aws-sdk-bedrockruntime` compiling; the crate's
+   `default` feature is `cli` + `default-tls`, and `cli` enables `full`,
+   every backend (Bedrock with the AWS SDK and Smithy, Azure, Cohere,
+   Mistral, OpenRouter, Hugging Face, ElevenLabs, the agent framework,
+   the axum REST server) plus the REPL's clap, rustyline, colored and
+   spinners. Our three named features were adding nothing on top. The
+   lockfile goes from 816 to 718 crates; `clap` stays for colap's
+   `rustemo-compiler` build dependency and `aws-lc-rs` as rustls's
+   crypto backend.
+3. Gates: `cargo fmt --all -- --check`, `cargo clippy --workspace
    --all-targets -- -D warnings`, `cargo test --workspace`.
-3. Release 0.7.1 once a live game confirms the fix.
+4. Release 0.7.1 once a live game confirms the fix.
 
 ## Follow-up (own ticket)
 
@@ -63,5 +73,6 @@ which is why it is not part of this fix.
 
 - [x] fmt, clippy `-D warnings`, 80 workspace tests.
 - [x] `Cargo.lock`: `llm` 1.3.7, 60 crates that only 1.3.8 pulled in
-      are gone again.
+      are gone again; 98 more with the default features off, among them
+      `aws-sdk-bedrockruntime`.
 - [ ] A Gemini turn in a real game completes on the rebuilt binary.
