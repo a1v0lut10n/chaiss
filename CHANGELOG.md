@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- When the GPU renderer cannot start (typically `Device(Lost)` because
+  other programs hold the GPU's memory), chaiss now prints what happened,
+  what to close, and the `WGPU_BACKEND` / `WGPU_POWER_PREF` switches to
+  try, instead of the raw `Error: Wgpu(...)` dump (CHAI-0055).
 - On WSL, chaiss exited at startup with `Broken pipe` /
   `WinitEventLoop(ExitFailure(1))`: WSLg's Weston compositor segfaults
   under the title bar winit draws on Wayland. Under WSL the window now
