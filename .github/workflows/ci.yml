@@ -34,10 +34,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libasound2-dev
+      # No apt step: the tree links no system library beyond libssl (preinstalled
+      # with pkg-config on the Ubuntu images). wayland-sys is built with its
+      # `dlopen` feature, winit's x11-dl and xkbcommon-dl load their libraries at
+      # run time, and nothing needs ALSA. The step only added a dependency on the
+      # apt mirrors, which failed to resolve for every run on 2026-11-11.
       - uses: Swatinem/rust-cache@v2
       - name: Verify Strict Lints
         run: cargo clippy --workspace -- -D warnings
@@ -48,10 +49,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - name: Execute Workspace Unit Tests
         run: cargo test --workspace
