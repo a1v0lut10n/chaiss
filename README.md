@@ -78,11 +78,13 @@ The **[Chaiss User Guide](docs/user_guide.md)** walks through the interface show
 
 ## UI Inspection via MCP
 
-Chaiss is built on `egui` 0.36, which ships an **inspection protocol**
+Chaiss is built on `egui` 0.37, which ships an **inspection protocol**
 (`egui_inspection`) that exposes a running app's live UI (AccessKit) tree over a
-local port. Chaiss wires this to the [`egui-mcp`](https://github.com/rerun-io/kittest_inspector)
+local port. Chaiss wires this to the [`egui-mcp`](https://github.com/rerun-io/egui_crates)
 server so an AI agent — e.g. Claude Code — can **read and drive the running UI**
-through the Model Context Protocol.
+through the Model Context Protocol. The protocol has no version negotiation, so
+the server must match chaiss's egui: `egui_mcp` 0.3 is egui 0.37, and the setup
+script pins that line.
 
 **One-time setup** (installs the `egui-mcp` server binary; macOS and Ubuntu/Debian
 today, Windows planned):

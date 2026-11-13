@@ -3,13 +3,18 @@
 #
 # Install and enable the egui MCP inspection server for Chaiss.
 #
-# egui 0.35 ships an inspection protocol (egui_inspection): when the app is built
+# egui (since 0.35) ships an inspection protocol (egui_inspection): when the app is built
 # with the `eframe/inspection` feature and launched with EGUI_INSPECTION=1, it
 # exposes its live UI (AccessKit) tree on 127.0.0.1:5719. The `egui-mcp` server
 # bridges that to any MCP client (e.g. Claude Code / Claude Desktop) so an agent
 # can read and drive the running UI.
 #
-# This script installs the `egui-mcp` server binary. The server itself is enabled
+# This script installs the `egui-mcp` server binary (crate `egui_mcp`, from the
+# rerun-io/egui_crates monorepo; the old kittest_inspector repo is archived).
+# egui_inspection has no version negotiation, so the binary must be built
+# against the same egui minor as Chaiss: EGUI_MCP_VERSION pins the matching
+# egui_mcp line, and an installed binary outside it is replaced. Bump the pin
+# with every egui upgrade (egui_mcp 0.3 = egui 0.37). The server itself is enabled
 # for this repository by the committed .mcp.json at the repo root — Claude Code
 # will offer the `egui` server automatically once the binary is on PATH.
 #
@@ -17,15 +22,16 @@
 # windows_notice function below).
 #
 # Usage:
-#   tools/scripts/setup-egui-mcp.sh            # install if missing, then print next steps
+#   tools/scripts/setup-egui-mcp.sh            # install if missing or mismatched, then print next steps
 #   tools/scripts/setup-egui-mcp.sh --force    # reinstall even if already present
 #   tools/scripts/setup-egui-mcp.sh --global   # also register with Claude at user scope
 #                                              # (`claude mcp add`), not just this repo
 
 set -euo pipefail
 
-readonly EGUI_MCP_GIT="https://github.com/rerun-io/kittest_inspector"
 readonly EGUI_MCP_CRATE="egui_mcp"
+# The egui_mcp line built against Chaiss's egui minor (0.3 = egui 0.37).
+readonly EGUI_MCP_VERSION="0.3"
 readonly EGUI_MCP_BIN="egui-mcp"
 readonly INSPECTION_PORT="5719"
 
@@ -51,7 +57,7 @@ windows_notice() {
 The pieces all work on Windows (egui uses AccessKit natively there), but this
 installer is currently macOS/Ubuntu only. To set up manually for now:
 
-  1. cargo install --git https://github.com/rerun-io/kittest_inspector egui_mcp
+  1. cargo install egui_mcp --version "~0.3" --locked
   2. Ensure %USERPROFILE%\.cargo\bin is on PATH (egui-mcp.exe lives there).
   3. The repo's .mcp.json registers the server for Claude Code automatically.
   4. Launch the app with inspection:
@@ -98,14 +104,21 @@ if ! command -v cc >/dev/null 2>&1; then
 fi
 
 # --- Install the egui-mcp server ----------------------------------------------
-if command -v "$EGUI_MCP_BIN" >/dev/null 2>&1 && [ "$FORCE" -eq 0 ]; then
-  echo "✅ $EGUI_MCP_BIN already installed at: $(command -v "$EGUI_MCP_BIN")"
+# The version cargo installed, e.g. "0.3.0" (empty if not installed by cargo).
+installed_version="$(cargo install --list 2>/dev/null \
+  | sed -n "s/^${EGUI_MCP_CRATE} v\([0-9.]*\).*/\1/p")"
+
+if [ "$FORCE" -eq 0 ] && command -v "$EGUI_MCP_BIN" >/dev/null 2>&1 \
+  && [[ "$installed_version" == "$EGUI_MCP_VERSION".* ]]; then
+  echo "✅ $EGUI_MCP_BIN $installed_version already installed at: $(command -v "$EGUI_MCP_BIN")"
   echo "   (re-run with --force to reinstall)"
 else
-  echo "📦 Installing $EGUI_MCP_BIN from $EGUI_MCP_GIT ..."
-  install_args=(--git "$EGUI_MCP_GIT" "$EGUI_MCP_CRATE")
-  [ "$FORCE" -eq 1 ] && install_args+=(--force)
-  cargo install "${install_args[@]}"
+  if [ -n "$installed_version" ]; then
+    echo "🔁 Installed $EGUI_MCP_CRATE $installed_version does not match ~$EGUI_MCP_VERSION (Chaiss's egui); replacing it."
+  fi
+  echo "📦 Installing $EGUI_MCP_BIN ($EGUI_MCP_CRATE ~$EGUI_MCP_VERSION) from crates.io ..."
+  # --force replaces any other version; --locked builds the published lockfile.
+  cargo install "$EGUI_MCP_CRATE" --version "~$EGUI_MCP_VERSION" --locked --force
   echo "✅ Installed: $(command -v "$EGUI_MCP_BIN" || echo "$EGUI_MCP_BIN (ensure ~/.cargo/bin is on PATH)")"
 fi
 
