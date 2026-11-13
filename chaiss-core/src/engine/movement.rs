@@ -303,14 +303,9 @@ pub fn is_square_attacked(state: &GameState, target_idx: usize, attacker_color: 
 
 /// Locates a specific Color's 1D King index geometrically natively.
 pub fn find_king(state: &GameState, color: Color) -> Option<usize> {
-    for sq_idx in 0..64 {
-        if let Some(piece) = state.board[sq_idx] {
-            if piece.color == color && piece.piece_type == PieceType::King {
-                return Some(sq_idx);
-            }
-        }
-    }
-    None
+    state.board.iter().position(|square| {
+        matches!(square, Some(piece) if piece.color == color && piece.piece_type == PieceType::King)
+    })
 }
 
 #[cfg(test)]
